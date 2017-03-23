@@ -12,7 +12,16 @@ setup(name = 'comp',
       long_description=long_description,
       author = 'McSinyx',
       author_email = 'vn.mcsinyx@gmail.com',
-      license = 'AGPLv2',
       py_modules = ['mpv'],
-      scripts=['comp']
+      scripts=['comp'],
+      classifiers = ['Development Status :: 1 - Planning',
+                     'Environment :: Console :: Curses',
+                     'Intended Audience :: End Users/Desktop',
+                     'Natural Language :: English',
+                     'Natural Language :: Vietnamese',  # planned
+                     'Operating System :: POSIX',
+                     'Programming Language :: Python :: 3.5',
+                     'Topic :: Multimedia :: Sound/Audio :: Players',
+                     'Topic :: Multimedia :: Video :: Display'],
+      license = 'AGPLv2'
 )
