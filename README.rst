@@ -2,4 +2,4 @@
 comp
 ====
 
-console/curses online media player
+Curses Online Media Player
