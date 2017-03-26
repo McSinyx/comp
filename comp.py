@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 
+# comp - Curses Online Media Player
+# Copyright (C) 2017  Raphael McSinyx
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import curses
 import json
 from argparse import ArgumentParser
@@ -22,8 +38,8 @@ def mpv_wrapper(media, video=True):
     del player
 
 
-def reattr(stdscr, y):
-    track = DATA[start + y - 1]
+def reattr(stdscr, y, track):
+    track = data[start + y - 1]
     invert = 8 if track['highlight'] else 0
     if track['error']:
         stdscr.chgat(y, 0, curses.color_pair(1 + invert) | curses.A_BOLD)
@@ -37,15 +53,16 @@ def reattr(stdscr, y):
         stdscr.chgat(y, 0, curses.color_pair(0) | curses.A_NORMAL)
 
 
-def reprint(stdscr):
+def reprint(stdscr, data2print):
     stdscr.clear()
     stdscr.addstr(0, curses.COLS-12, 'URL')
     stdscr.addstr(0, 0, 'Title')
     stdscr.chgat(0, 0, curses.color_pair(10) | curses.A_BOLD)
-    for i, d in enumerate(DATA[start : start+curses.LINES-3]):
-        stdscr.addstr(i + 1, 0, d['url'].rjust(curses.COLS - 1))
-        stdscr.addstr(i + 1, 0, d['title'][:curses.COLS-12])
-        reattr(stdscr, i + 1)
+    for i, d in enumerate(data2print):
+        y = i + 1
+        stdscr.addstr(y, 0, d['url'].rjust(curses.COLS - 1))
+        stdscr.addstr(y, 0, d['title'][:curses.COLS-12])
+        reattr(stdscr, y, data[start + i])
     stdscr.addstr(
         curses.LINES - 2,
         curses.COLS - 16,
@@ -55,41 +72,41 @@ def reprint(stdscr):
     stdscr.refresh()
 
 
-def move(stdscr, y, delta):
+def move(stdscr, data, y, delta):
     global start
-    reattr(stdscr, y)
+    reattr(stdscr, y, data[start + y - 1])
     if start + y + delta < 1:
         start = 0
-        reprint(stdscr)
-        stdscr.move(stdscr, 1, 0)
-        DATA[0]['highlight'] = True
-        reattr(stdscr, 1)
-        DATA[0]['highlight'] = False
+        reprint(stdscr, data[:curses.LINES-3])
+        stdscr.move(1, 0)
+        data[0]['highlight'] = True
+        reattr(stdscr, 1, data[start])
+        data[0]['highlight'] = False
         return 1
-    elif start + y + delta > len(DATA):
-        start = len(DATA) - curses.LINES + 3
-        reprint(stdscr)
+    elif start + y + delta > len(data):
+        start = len(data) - curses.LINES + 3
+        reprint(stdscr, data[-curses.LINES+3:])
         y = curses.LINES - 3
-        stdscr.move(stdscr, y, 0)
-        DATA[-1]['highlight'] = True
-        reattr(stdscr, y)
-        DATA[-1]['highlight'] = False
+        stdscr.move(y, 0)
+        data[-1]['highlight'] = True
+        reattr(stdscr, y, data[start + y - 1])
+        data[-1]['highlight'] = False
         return y
 
     if 0 < y + delta < curses.LINES - 2:
         y = y + delta
     elif y + delta < 1:
         start += y + delta - 1
-        reprint(stdscr)
+        reprint(stdscr, data[start : start+curses.LINES-3])
         y = 1
     else:
         start += y + delta - curses.LINES + 3
-        reprint(stdscr)
+        reprint(stdscr, data[start : start+curses.LINES-3])
         y = curses.LINES - 3
-    stdscr.move(stdscr, y, 0)
-    DATA[start + y - 1]['highlight'] = True
-    reattr(stdscr, y)
-    DATA[start + y - 1]['highlight'] = False
+    stdscr.move(y, 0)
+    data[start + y - 1]['highlight'] = True
+    reattr(stdscr, y, data[start + y - 1])
+    data[start + y - 1]['highlight'] = False
     stdscr.refresh()
     return y
 
@@ -107,8 +124,8 @@ selected = config.getboolean('Runtime', 'play-selected-only', fallback=False)
 video = config.getboolean('Runtime', 'video', fallback=True)
 
 with open(args.json_playlist) as f:
-    DATA = json.load(f)
-for i in DATA:
+    data = json.load(f)
+for i in data:
     i['error'] = False
     i['playing'] = False
     i['selected'] = False
@@ -139,37 +156,37 @@ curses.init_pair(14, -1, 6)
 
 # Print initial content
 start = 0
-reprint(stdscr)
+reprint(stdscr, data[:curses.LINES-3])
 y = 1
-DATA[0]['highlight'] = True
-stdscr.move(stdscr, 1, 0)
-reattr(stdscr, 1)
-DATA[0]['highlight'] = False
+data[0]['highlight'] = True
+stdscr.move(1, 0)
+reattr(stdscr, 1, data[start])
+data[0]['highlight'] = False
 
 c = stdscr.getch()
 while c != 113:     # letter q
     if c == curses.KEY_RESIZE:
         curses.update_lines_cols()
-        reprint(stdscr)
+        reprint(stdscr, data[start : start+curses.LINES-3])
         y = 1
-        reattr(stdscr, y)
+        reattr(stdscr, 1, data[start])
     elif c in (ord('j'), curses.KEY_DOWN):
-        y = move(stdscr, y, 1)
+        y = move(stdscr, data, y, 1)
     elif c in (ord('k'), curses.KEY_UP):
-        y = move(stdscr, y, -1)
+        y = move(stdscr, data, y, -1)
     elif c == curses.KEY_PPAGE:
-        y = move(stdscr, y, -curses.LINES)
+        y = move(stdscr, data, y, -curses.LINES)
     elif c == curses.KEY_NPAGE:
-        y = move(stdscr, y, curses.LINES)
+        y = move(stdscr, data, y, curses.LINES)
     elif c == curses.KEY_HOME:
-        y = move(stdscr, y, -len(DATA))
+        y = move(stdscr, data, y, -len(data))
     elif c == curses.KEY_END:
-        y = move(stdscr, y, len(DATA))
+        y = move(stdscr, data, y, len(data))
     elif c == ord(' '):
-        DATA[start + y - 1]['selected'] = not DATA[start + y - 1]['selected']
-        y = move(stdscr, y, 1)
+        data[start + y - 1]['selected'] = not data[start + y - 1]['selected']
+        y = move(stdscr, data, y, 1)
     elif c == ord('x'):     # temporally behavior
-        mpv_wrapper('https://youtu.be/' + DATA[start + y - 1]['url'], video)
+        mpv_wrapper('https://youtu.be/' + data[start + y - 1]['url'], video)
     stdscr.refresh()
     c = stdscr.getch()
 
