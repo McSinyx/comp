@@ -12,7 +12,7 @@ setup(name = 'comp', version = '0.1.0a1',
       author = 'McSinyx', author_email = 'vn.mcsinyx@gmail.com',
       py_modules = ['mpv'], scripts=['comp.py'],
       classifiers = [
-          'Development Status :: 1 - Planning',
+          'Development Status :: 2 - Pre-alpha',
           'Environment :: Console :: Curses',
           'Intended Audience :: End Users/Desktop',
           'License :: OSI Approved :: GNU Affero General Public License v3',
