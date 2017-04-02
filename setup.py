@@ -5,7 +5,7 @@ from distutils.core import setup
 with open('README.rst') as f:
     long_description = f.read()
 
-setup(name = 'comp', version = '0.1.0a1',
+setup(name = 'comp', version = '0.1.0a2',
       url = 'https://github.com/McSinyx/comp',
       description = ('Curses Online Media Player'),
       long_description=long_description,

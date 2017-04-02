@@ -26,15 +26,6 @@ from time import gmtime, strftime
 from mpv import MPV
 
 
-def initmpv(ytdl_format, video):
-    if video:
-        return MPV(input_default_bindings=True, input_vo_keyboard=True,
-                   ytdl=True, ytdl_format=ytdl_format)
-    else:
-        return MPV(input_default_bindings=True, input_vo_keyboard=True,
-                   ytdl=True, ytdl_format=ytdl_format, vid=False)
-
-
 def setno(data, keys):
     """Set all keys of each track in data to False."""
     for key in keys:
@@ -42,12 +33,37 @@ def setno(data, keys):
             track[key] = False
 
 
+def find(data, key):
+    """Return the list tracks with key set to True."""
+    return [track for track in data if track[key]]
+
+
+def initmpv(vf, af):
+    """Return a mpv object with youtube-dl video format set to vf+af."""
+    ytdlf = '{}+{}'.format(vf, af) if vf and af else vf + af
+    mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
+             ytdl=True, ytdl_format=ytdlf)
+    if video_output: mp['vo'] = video_output
+    mp.observe_property('pause', lambda foo: updatestatusline(stdscr, mp))
+    mp.observe_property('time-pos', lambda foo: updatestatusline(stdscr, mp))
+    mp.observe_property('aid', lambda foo: updatestatusline(stdscr, mp))
+    mp.observe_property('vid', lambda foo: updatestatusline(stdscr, mp))
+    return mp
+
+
+def play(track):
+    setno(data, ['playing'])
+    mp._set_property('pause', False, bool)
+    mp.play('https://youtu.be/' + track['url'])
+    track['playing'] = True
+    reprint(stdscr, data[start : start+curses.LINES-3])
+
+
 def secpair2hhmmss(pos, duration):
     """Quick hack to convert a pair of seconds to HHMMSS / HHMMSS
     string as MPV.get_property_osd_string isn't available.
     """
-    if pos is None:
-        return ''
+    if pos is None: return ''
     postime, durationtime = gmtime(pos), gmtime(duration)
     # Let's hope media durations are shorter than a day
     timestr = '%M:%S' if duration < 3600 else '%H:%M:%S'
@@ -55,18 +71,19 @@ def secpair2hhmmss(pos, duration):
                             strftime(timestr, durationtime))
 
 
-
-def updatestatusline(stdscr):
-    stdscr.addstr(curses.LINES - 2, 1, '{} {}'.format(
-        '|' if mp._get_property('pause', bool) else '>',
-        secpair2hhmmss(mp._get_property('time-pos', int),
-                       mp._get_property('duration', int))
-    ))
-    stdscr.addstr(
-        curses.LINES - 2,
-        curses.COLS - 16,
-        '{:7} {:8}'.format(mode, 'selected' if selected else 'all')
-    )
+def updatestatusline(stdscr, mp):
+    playmode = ' {}{} {}'.format('A' if mp._get_property('aid') != 'no' else ' ',
+                                 'V' if mp._get_property('vid') != 'no' else ' ',
+                                 mode)
+    time = secpair2hhmmss(mp._get_property('time-pos', int),
+                          mp._get_property('duration', int))
+    if time:
+        stdscr.addstr(curses.LINES - 2, 1, '{} {} {}'.format(
+            time,
+            '|' if mp._get_property('pause', bool) else '>',
+            mp._get_property('media-title')
+        )[:curses.COLS-len(playmode)])
+    stdscr.addstr(curses.LINES - 2, curses.COLS - 1 - len(playmode), playmode)
     stdscr.chgat(curses.LINES - 2, 0, curses.color_pair(8))
     stdscr.refresh()
 
@@ -79,7 +96,7 @@ def reprint(stdscr, data2print):
     for i, track in enumerate(data2print):
         y = i + 1
         stdscr.addstr(y, 0, track['url'].rjust(curses.COLS - 1))
-        stdscr.addstr(y, 1, track['title'][:curses.COLS-12])
+        stdscr.addstr(y, 1, track['title'][:curses.COLS-14])
         invert = 8 if track['highlight'] else 0
         if track['error']:
             stdscr.chgat(y, 0, curses.color_pair(1 + invert) | curses.A_BOLD)
@@ -91,7 +108,7 @@ def reprint(stdscr, data2print):
             stdscr.chgat(y, 0, curses.color_pair(12) | curses.A_BOLD)
         else:
             stdscr.chgat(y, 0, curses.color_pair(0) | curses.A_NORMAL)
-    updatestatusline(stdscr)
+    updatestatusline(stdscr, mp)
 
 
 def move(stdscr, data, y, delta):
@@ -132,10 +149,11 @@ args = parser.parse_args()
 
 config = ConfigParser()
 config.read(expanduser('~/.config/comp/settings.ini'))
-ytdl_format = config.get('Init', 'ytdl-format', fallback='best')
-mode = config.get('Runtime', 'play-mode', fallback='normal')
-selected = config.getboolean('Runtime', 'play-selected-only', fallback=False)
-video = config.getboolean('Runtime', 'video', fallback=True)
+mode = config.get('comp', 'play-mode', fallback='play-all')
+video_output = config.get('mpv', 'video-output', fallback='')
+audio_format = config.get('youtube-dl', 'audio-format', fallback='bestaudio')
+video_format = config.get('youtube-dl', 'video-format', fallback='bestvideo')
+audio, video = audio_format, video_format
 
 with open(args.json_playlist) as f:
     data = json.load(f)
@@ -163,8 +181,7 @@ curses.init_pair(12, -1, 4)
 curses.init_pair(13, -1, 5)
 curses.init_pair(14, -1, 6)
 
-mp = initmpv(ytdl_format, video)
-mp.observe_property('time-pos', lambda pos: updatestatusline(stdscr))
+mp = initmpv(video, audio)
 
 # Print initial content
 start = 0
@@ -192,16 +209,17 @@ while c != 113:     # letter q
         y = move(stdscr, data, y, -len(data))
     elif c == curses.KEY_END:   # end
         y = move(stdscr, data, y, len(data))
-    elif c == 32:   # space
-        setno(data, ['playing'])
-        mp.play('https://youtu.be/' + data[start + y - 1]['url'])
-        data[start + y - 1]['playing'] = True
-        reprint(stdscr, data[start : start+curses.LINES-3])
     elif c == 112:  # letter p
+        play(data[start + y - 1])
+    elif c == 32:   # space
         mp._set_property('pause', not mp._get_property('pause', bool), bool)
     elif c == 99:   # letter c
         data[start + y - 1]['selected'] = not data[start + y - 1]['selected']
         y = move(stdscr, data, y, 1)
+    elif c == 97:   # letter a
+        mp._set_property('aid', 'auto' if mp._get_property('aid') == 'no' else 'no')
+    elif c == 118:  # letter v
+        mp._set_property('vid', 'auto' if mp._get_property('vid') == 'no' else 'no')
     c = stdscr.getch()
 
 curses.nocbreak()
