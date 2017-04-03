@@ -5,14 +5,14 @@ from distutils.core import setup
 with open('README.rst') as f:
     long_description = f.read()
 
-setup(name = 'comp', version = '0.1.0a2',
+setup(name = 'comp', version = '0.1.0a3',
       url = 'https://github.com/McSinyx/comp',
       description = ('Curses Online Media Player'),
       long_description=long_description,
       author = 'McSinyx', author_email = 'vn.mcsinyx@gmail.com',
       py_modules = ['mpv'], scripts=['comp.py'],
       classifiers = [
-          'Development Status :: 2 - Pre-alpha',
+          'Development Status :: 3 - Alpha',
           'Environment :: Console :: Curses',
           'Intended Audience :: End Users/Desktop',
           'License :: OSI Approved :: GNU Affero General Public License v3',
