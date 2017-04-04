@@ -226,10 +226,10 @@ while c != 113:     # letter q
         start += y - 1
         y = 1
         reprint(stdscr, data[start : start+curses.LINES-3])
-    elif c in (106, curses.KEY_DOWN):   # letter j or down arrow
-        y = move(stdscr, data, y, 1)
     elif c in (107, curses.KEY_UP):     # letter k or up arrow
         y = move(stdscr, data, y, -1)
+    elif c in (106, curses.KEY_DOWN):   # letter j or down arrow
+        y = move(stdscr, data, y, 1)
     elif c == curses.KEY_PPAGE:     # page up
         y = move(stdscr, data, y, 4 - curses.LINES)
     elif c == curses.KEY_NPAGE:     # page down
@@ -238,12 +238,9 @@ while c != 113:     # letter q
         y = move(stdscr, data, y, -len(data))
     elif c == curses.KEY_END:   # end
         y = move(stdscr, data, y, len(data))
-    elif c == 109:  # letter m
-        mode = MODES[(MODES.index(mode) + 1) % 8]
-        update_status_line(stdscr, mp)
-    elif c == 77:   # letter M
-        mode = MODES[(MODES.index(mode) - 1) % 8]
-        update_status_line(stdscr, mp)
+    elif c == 99:   # letter c
+        data[start + y - 1]['selected'] = not data[start + y - 1]['selected']
+        y = move(stdscr, data, y, 1)
     elif c == 112:  # letter p
         mp._set_property('pause', False, bool)
         play_thread = Thread(target=play)
@@ -251,12 +248,15 @@ while c != 113:     # letter q
         play_thread.start()
     elif c == 32:   # space
         mp._set_property('pause', not mp._get_property('pause', bool), bool)
-    elif c == 99:   # letter c
-        data[start + y - 1]['selected'] = not data[start + y - 1]['selected']
-        y = move(stdscr, data, y, 1)
-    elif c == 97:   # letter a
+    elif c == 109:  # letter m
+        mode = MODES[(MODES.index(mode) + 1) % 8]
+        update_status_line(stdscr, mp)
+    elif c == 77:   # letter M
+        mode = MODES[(MODES.index(mode) - 1) % 8]
+        update_status_line(stdscr, mp)
+    elif c == 65:   # letter A
         mp._set_property('mute', not mp._get_property('mute', bool), bool)
-    elif c == 118:  # letter v
+    elif c == 86:   # letter V
         mp._set_property('vid', 'auto' if mp._get_property('vid') == 'no' else 'no')
     c = stdscr.getch()
 
