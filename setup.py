@@ -12,7 +12,7 @@ setup(name = 'comp', version = '0.1.1a1',
       long_description=long_description,
       author = 'McSinyx', author_email = 'vn.mcsinyx@gmail.com',
       py_modules = ['mpv'], scripts=['comp'],
-      data_files=[(expanduser('~/.config/comp'), ['settings.ini'])],
+      data_files=[('/etc/comp', ['settings.ini'])],
       classifiers = [
           'Development Status :: 3 - Alpha',
           'Environment :: Console :: Curses',
