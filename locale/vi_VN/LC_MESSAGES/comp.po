@@ -1,0 +1,66 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR ORGANIZATION
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: 2017-04-05 11:00+0700\n"
+"PO-Revision-Date: 2017-04-05 11:05+0700\n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: pygettext.py 1.5\n"
+"X-Generator: Poedit 1.8.11\n"
+"Last-Translator: \n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: vi_VN\n"
+
+#: comp:42
+msgid "play-current"
+msgstr "chơi-một"
+
+#: comp:43
+msgid "play-all"
+msgstr "chơi-tất-cả"
+
+#: comp:44
+msgid "play-selected"
+msgstr "chơi-đã-chọn"
+
+#: comp:45
+msgid "repeat-current"
+msgstr "lặp-một"
+
+#: comp:46
+msgid "repeat-all"
+msgstr "lặp-tất-cả"
+
+#: comp:47
+msgid "repeat-selected"
+msgstr "lặp-đã-chọn"
+
+#: comp:48
+msgid "shuffle-all"
+msgstr "ngẫu-nhiên-tất-cả"
+
+#: comp:49
+msgid "shuffle-selected"
+msgstr "ngẫu-nhiên-đã-chọn"
+
+#: comp:144
+msgid "URL"
+msgstr "URL"
+
+#: comp:145
+msgid "Title"
+msgstr "Tiêu đề"
+
+#: comp:199
+msgid "path to playlist in JSON format"
+msgstr "đường dẫn đến playlist ở định dạng JSON"
+
+#: comp:201
+msgid "URL to an playlist on Youtube"
+msgstr "URL của playlist trên Youtube"

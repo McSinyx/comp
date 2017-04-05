@@ -25,22 +25,24 @@ this moment, I'd suggest you to use ``git`` to get the software::
 
    git clone https://github.com/McSinyx/comp.git
    cd comp
-   ./setup.py install --user
+   sudo ./setup.py install --user
 
 Usage
 -----
 
-Command line arguments::
+::
 
-   $ comp -h
+   $ comp --help
    usage: comp [-h] [-j JSON_PLAYLIST]
    
-   console/curses online media mp
+   Curses Online Media Player
    
    optional arguments:
      -h, --help            show this help message and exit
      -j JSON_PLAYLIST, --json-playlist JSON_PLAYLIST
                            path to playlist in JSON format
+     -y YOUTUBE_PLAYLIST, --youtube-playlist YOUTUBE_PLAYLIST
+                        URL to an playlist on Youtube
 
 Keyboard control
 ^^^^^^^^^^^^^^^^
@@ -60,6 +62,10 @@ Keyboard control
 +--------------+-------------------------------+
 | End          | Move to the end of the list   |
 +--------------+-------------------------------+
+| Left         | Seek backward 5 seconds       |
++--------------+-------------------------------+
+| Right        | Seek forward 5 seconds        |
++--------------+-------------------------------+
 | ``c``        | Select the current track      |
 +--------------+-------------------------------+
 | ``p``        | Start playing                 |
@@ -73,24 +79,25 @@ Keyboard control
 | ``V``        | Toggle video                  |
 +--------------+-------------------------------+
 
-Configurations
---------------
+Configuration files
+-------------------
 
-``comp`` uses INI format for its config file, placed in
-``~/.config/comp/settings.ini``::
+The system-wide configuration file is ``/etc/comp/settings.ini``, the
+user-specific one is  ``~/.config/mpv/settings.ini``. Default configurations
+are listed below::
 
    [comp]
    # Supported 8 modes: play-current, play-all, play-selected, repeat-current,
-   # repeat-all, repeat-selected, shuffle-all and shuffle-selected
-   play-mode = shuffle-selected
+   # repeat-all, repeat-selected, shuffle-all and shuffle-selected.
+   play-mode = play-current
    
    [mpv]
    # Set if video should be download and play, I only know 2 possible values:
    # auto and no. This can be changed later interactively.
-   video = no
-   # Read more on VIDEO OUTPUT DRIVERS section in mpv man page
-   video-output = xv
+   video = auto
+   # Read more on VIDEO OUTPUT DRIVERS section in mpv man page.
+   video-output =
    
    [youtube-dl]
-   # Read more on youtube-dl man page
+   # Read more on FORMAT SELECTION section in youtube-dl man page.
    format = best
