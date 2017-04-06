@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
  
 # comp - Curses Online Media Player
-# Copyright (C) 2017  Raphael McSinyx
+# Copyright (C) 2017  Nguyễn Gia Phong
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -21,12 +21,13 @@ import json
 import subprocess
 from argparse import ArgumentParser
 from configparser import ConfigParser
+from curses.ascii import ctrl
 from datetime import datetime
 from gettext import bindtextdomain, gettext, textdomain
 from io import StringIO
 from itertools import cycle
 from os import linesep, makedirs
-from os.path import dirname, expanduser, isfile
+from os.path import abspath, dirname, expanduser, isfile
 from random import choice
 from time import gmtime, strftime
 from threading import Thread
@@ -34,25 +35,16 @@ from threading import Thread
 from mpv import MPV
 
 # Init gettext
-bindtextdomain('comp', 'locale')
+#bindtextdomain('comp', 'locale')
 textdomain('comp')
 _ = gettext
 
-GLOBAL_CONFIG = '/etc/comp/settings.ini'
+SYSTEM_CONFIG = '/etc/comp/settings.ini'
 USER_CONFIG = expanduser('~/.config/comp/settings.ini')
 MPV_LOG = expanduser('~/.cache/comp/mpv.log')
 MODES = ('play-current', 'play-all', 'play-selected', 'repeat-current',
          'repeat-all', 'repeat-selected', 'shuffle-all', 'shuffle-selected')
-# I ain't found the correct way to do this yet
-_MODES = {'play-current': _('play-current'),
-          'play-all': _('play-all'),
-          'play-selected': _('play-selected'),
-          'repeat-current': _('repeat-current'),
-          'repeat-all': _('repeat-all'),
-          'repeat-selected': _('repeat-selected'),
-          'shuffle-all': _('shuffle-all'),
-          'shuffle-selected': _('shuffle-selected')}
-MODE_STR_LEN = max(len(mode) for mode in _MODES.values())
+MODE_STR_LEN = max(len(_(mode)) for mode in MODES)
 
 
 def mpv_logger(loglevel, component, message):
@@ -63,37 +55,45 @@ def mpv_logger(loglevel, component, message):
 
 
 def setno(entries, keys):
-    """Set all keys of each track in entries to False."""
+    """Set all keys of each entry in entries to False."""
     for key in keys:
-        for track in entries:
-            track[key] = False
+        for entry in entries:
+            entry[key] = False
+
+
+def getlink(entry):
+    links = {'Youtube': 'https://youtu.be/{}'}
+    # This is not fail-safe
+    entry['url'] = links.get(entry.get('ie_key', ''), '{}').format(entry.get('id'))
 
 
 def playlist(mode):
-    """Return a generator of tracks to be played."""
+    """Return a generator of entries to be played."""
     action, choose_from = mode.split('-')
     if choose_from == 'all':
-        tracks = entries
+        entries2play = entries
     else:
-        tracks = [track for track in entries
-                  if track.setdefault(choose_from, False)]
+        entries2play = [entry for entry in entries
+                        if entry.setdefault(choose_from, False)]
     # Somehow yield have to be used instead of returning a generator
     if action == 'play':
-        for track in tracks: yield track
+        for entry in entries2play: yield entry
     elif action == 'repeat':
-        for track in cycle(tracks): yield track
-    elif tracks:
-        while True: yield choice(tracks)
+        for entry in cycle(entries2play): yield entry
+    elif entries2play:
+        while True: yield choice(entries2play)
 
 
 def play():
-    for track in playlist(mode):
-        entries[entries.index(track)]['playing'] = True
+    for entry in playlist(mode):
+        idx = entries.index(entry)
+        entries[idx]['playing'] = True
         reprint(stdscr, entries[start : start+curses.LINES-3])
         # Gross hack
-        mp.play('https://youtu.be/' + track['url'])
+        getlink(entries[idx])
+        mp.play(entries[idx]['url'])
         mp.wait_for_playback()
-        entries[entries.index(track)]['playing'] = False
+        entries[idx]['playing'] = False
         reprint(stdscr, entries[start : start+curses.LINES-3])
 
 
@@ -112,7 +112,7 @@ def secpair2hhmmss(pos, duration):
 def update_status_line(stdscr, mp):
     left = ' ' + secpair2hhmmss(mp._get_property('time-pos', int),
                                 mp._get_property('duration', int))
-    right = ' {} {}{} '.format(_MODES[mode],
+    right = ' {} {}{} '.format(_(mode),
                                ' ' if mp._get_property('mute', bool) else 'A',
                                ' ' if mp._get_property('vid') == 'no' else 'V')
     if left != ' ':
@@ -127,16 +127,18 @@ def update_status_line(stdscr, mp):
     else:
         stdscr.addstr(curses.LINES - 2, 0, right.rjust(curses.COLS),
                       curses.color_pair(8))
+    stdscr.move(curses.LINES - 1, 0)
+    stdscr.clrtoeol()
     stdscr.refresh()
 
 
-def reattr(stdscr, y, track):
-    invert = 8 if track.setdefault('current', False) else 0
-    if track.setdefault('error', False):
+def reattr(stdscr, y, entry):
+    invert = 8 if entry.setdefault('current', False) else 0
+    if entry.setdefault('error', False):
         stdscr.chgat(y, 0, curses.color_pair(1 + invert) | curses.A_BOLD)
-    elif track.setdefault('playing', False):
+    elif entry.setdefault('playing', False):
         stdscr.chgat(y, 0, curses.color_pair(3 + invert) | curses.A_BOLD)
-    elif track.setdefault('selected', False):
+    elif entry.setdefault('selected', False):
         stdscr.chgat(y, 0, curses.color_pair(5 + invert) | curses.A_BOLD)
     elif invert:
         stdscr.chgat(y, 0, curses.color_pair(12) | curses.A_BOLD)
@@ -144,16 +146,17 @@ def reattr(stdscr, y, track):
         stdscr.chgat(y, 0, curses.color_pair(0) | curses.A_NORMAL)
 
 
-def reprint(stdscr, tracks2print):
+def reprint(stdscr, entries2print):
     stdscr.clear()
-    stdscr.addstr(0, curses.COLS-12, _('URL'))
     stdscr.addstr(0, 1, _('Title'))
+    sitenamelen = max(max(len(entry['ie_key']) for entry in entries), 6)
+    stdscr.addstr(0, curses.COLS - sitenamelen - 1, _('Source'))
     stdscr.chgat(0, 0, curses.color_pair(10) | curses.A_BOLD)
-    for i, track in enumerate(tracks2print):
+    for i, entry in enumerate(entries2print):
         y = i + 1
-        stdscr.addstr(y, 0, track['url'].rjust(curses.COLS - 1))
-        stdscr.addstr(y, 1, track['title'][:curses.COLS-14])
-        reattr(stdscr, y, track)
+        stdscr.addstr(y, 0, entry['ie_key'].rjust(curses.COLS - 1))
+        stdscr.addstr(y, 1, entry['title'][:curses.COLS-sitenamelen-3])
+        reattr(stdscr, y, entry)
     update_status_line(stdscr, mp)
 
 
@@ -199,7 +202,7 @@ def move(stdscr, entries, y, delta):
     return y
 
 
-parser = ArgumentParser(description="Curses Online Media Player")
+parser = ArgumentParser(description=_("Curses Online Media Player"))
 parser.add_argument('-j', '--json-playlist', required=False,
                     help=_('path to playlist in JSON format'))
 parser.add_argument('-y', '--youtube-playlist', required=False,
@@ -207,7 +210,7 @@ parser.add_argument('-y', '--youtube-playlist', required=False,
 args = parser.parse_args()
 
 config = ConfigParser()
-config.read(USER_CONFIG if isfile(USER_CONFIG) else GLOBAL_CONFIG)
+config.read(USER_CONFIG if isfile(USER_CONFIG) else SYSTEM_CONFIG)
 mode = config.get('comp', 'play-mode', fallback='play-current')
 video = config.get('mpv', 'video', fallback='auto')
 video_output = config.get('mpv', 'video-output', fallback=None)
@@ -215,7 +218,7 @@ ytdlf = config.get('youtube-dl', 'format', fallback='best')
 
 if args.json_playlist:
     with open(args.json_playlist) as f:
-        entries = json.load(f)['entries']
+        entries = json.load(f)
 elif args.youtube_playlist:
     # Extremely gross hack
     raw_json = subprocess.run(['youtube-dl', '--flat-playlist',
@@ -264,22 +267,26 @@ y = 1
 entries[0]['current'] = True
 reprint(stdscr, entries[:curses.LINES-3])
 
+file = ''   # initial path of the file to dump the current playlist
+
 c = stdscr.getch()
 while c != 113:     # letter q
     if c == curses.KEY_RESIZE:
         curses.update_lines_cols()
         if curses.COLS < MODE_STR_LEN + 42 or curses.LINES < 4:
             stdscr.clear()
-            scr_size_warn = 'Current size: {}x{}. Minimum size: {}x4.'.format(
+            sizeerr = _('Current size: {}x{}. Minimum size: {}x4.').format(
                 curses.COLS,
                 curses.LINES,
                 MODE_STR_LEN + 42
             )
-            stdscr.addstr(0, 0, scr_size_warn)
+            stdscr.addstr(0, 0, sizeerr)
         else:
             start += y - 1
             y = 1
             reprint(stdscr, entries[start : start+curses.LINES-3])
+    elif c == curses.KEY_F5:    # F5
+        reprint(stdscr, entries[start : start+curses.LINES-3])
     elif c in (107, curses.KEY_UP):     # letter k or up arrow
         y = move(stdscr, entries, y, -1)
     elif c in (106, curses.KEY_DOWN):   # letter j or down arrow
@@ -299,7 +306,8 @@ while c != 113:     # letter q
         if mp._get_property('duration', int):
             mp.seek(2.5)
     elif c == 99:   # letter c
-        entries[start + y - 1]['selected'] = not entries[start + y - 1]['selected']
+        i = start + y - 1
+        entries[i]['selected'] = not entries[i].setdefault('selected', False)
         y = move(stdscr, entries, y, 1)
     elif c == 112:  # letter p
         mp._set_property('pause', False, bool)
@@ -307,7 +315,7 @@ while c != 113:     # letter q
         play_thread.daemon = True
         play_thread.start()
     elif c == 32:   # space
-        mp._set_property('pause', not mp._get_property('pause', bool), bool)
+        mp._toggle_property('pause')
     elif c == 109:  # letter m
         mode = MODES[(MODES.index(mode) + 1) % 8]
         update_status_line(stdscr, mp)
@@ -315,10 +323,30 @@ while c != 113:     # letter q
         mode = MODES[(MODES.index(mode) - 1) % 8]
         update_status_line(stdscr, mp)
     elif c == 65:   # letter A
-        mp._set_property('mute', not mp._get_property('mute', bool), bool)
+        mp._toggle_property('mute')
     elif c == 86:   # letter V
         mp._set_property('vid',
                          'auto' if mp._get_property('vid') == 'no' else 'no')
+    elif c == 83:   # letter S
+        prompt = _('Save playlist to [{}]:').format(file)
+        stdscr.addstr(curses.LINES - 1, 0, prompt)
+        curses.curs_set(True)
+        curses.echo()
+        file = stdscr.getstr(curses.LINES - 1, len(prompt) + 1).decode()
+        curses.curs_set(False)
+        curses.noecho()
+        try:
+            makedirs(dirname(abspath(file)), exist_ok=True)
+            with open(file, 'w') as f:
+                json.dump(entries, f)
+        except:
+            update_status_line(stdscr, mp)
+            stdscr.addstr(curses.LINES - 1, 0,
+                          _("'{}': Can't open file for writing").format(file),
+                          curses.color_pair(1))
+        else:
+            update_status_line(stdscr, mp)
+            stdscr.addstr(curses.LINES - 1, 0, _("'{}' written").format(file))
     c = stdscr.getch()
 
 curses.nocbreak()

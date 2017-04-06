@@ -1,3 +1,18 @@
+# python-mpv - Python interface to the awesome mpv media player
+# Copyright (C) 2017  jaseg, Nguyễn Gia Phong
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from ctypes import *
 import ctypes.util
@@ -9,8 +24,6 @@ from functools import partial
 import collections
 import re
 import traceback
-
-# vim: ts=4 sw=4 et
 
 if os.name == 'nt':
     backend = CDLL('mpv-1.dll')
@@ -684,6 +697,10 @@ class MPV(object):
             _mpv_set_property_string(self.handle, ename, str(proptype(value)).encode('utf-8'))
         else:
             raise TypeError('Cannot set {} property {} to value of type {}'.format(proptype, name, type(value)))
+
+    def _toggle_property(self, name):
+        """Toggle a bool property."""
+        self._set_property(name, not self._get_property(name, bool), bool)
 
     # Dict-like option access
     def __getitem__(self, name, file_local=False):
