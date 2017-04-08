@@ -6,7 +6,7 @@ from sys import prefix
 with open('README.rst') as f:
     long_description = f.read()
 
-setup(name='comp', version='0.1.1a2',
+setup(name='comp', version='0.1.1a3',
       url='https://github.com/McSinyx/comp',
       description=('Curses Online Media Player'),
       long_description=long_description,
