@@ -18,7 +18,6 @@
 
 import curses
 import json
-import subprocess
 from argparse import ArgumentParser
 from configparser import ConfigParser
 from curses.ascii import ctrl
@@ -32,10 +31,11 @@ from random import choice
 from time import gmtime, strftime
 from threading import Thread
 
+from youtube_dl import YoutubeDL
+
 from mpv import MPV
 
 # Init gettext
-#bindtextdomain('comp', 'locale')
 textdomain('comp')
 _ = gettext
 
@@ -62,9 +62,10 @@ def setno(entries, keys):
 
 
 def getlink(entry):
-    links = {'Youtube': 'https://youtu.be/{}'}
-    # This is not fail-safe
-    entry['url'] = links.get(entry.get('ie_key', ''), '{}').format(entry.get('id'))
+    """Return an URL from the given entry."""
+    with YoutubeDL({'quiet': True}) as ytdl:
+        return ytdl.extract_info(entry['url'], download=False,
+                                 ie_key=entry.get('ie_key')).get('webpage_url')
 
 
 def playlist(mode):
@@ -89,9 +90,7 @@ def play():
         idx = entries.index(entry)
         entries[idx]['playing'] = True
         reprint(stdscr, entries[start : start+curses.LINES-3])
-        # Gross hack
-        getlink(entries[idx])
-        mp.play(entries[idx]['url'])
+        mp.play(getlink(entry))
         mp.wait_for_playback()
         entries[idx]['playing'] = False
         reprint(stdscr, entries[start : start+curses.LINES-3])
@@ -109,7 +108,7 @@ def secpair2hhmmss(pos, duration):
                             strftime(timestr, durationtime))
 
 
-def update_status_line(stdscr, mp):
+def update_status(stdscr, mp, message='', msgattr=curses.A_NORMAL):
     left = ' ' + secpair2hhmmss(mp._get_property('time-pos', int),
                                 mp._get_property('duration', int))
     right = ' {} {}{} '.format(_(mode),
@@ -129,6 +128,7 @@ def update_status_line(stdscr, mp):
                       curses.color_pair(8))
     stdscr.move(curses.LINES - 1, 0)
     stdscr.clrtoeol()
+    stdscr.addstr(curses.LINES - 1, 0, message, msgattr)
     stdscr.refresh()
 
 
@@ -143,7 +143,7 @@ def reattr(stdscr, y, entry):
     elif invert:
         stdscr.chgat(y, 0, curses.color_pair(12) | curses.A_BOLD)
     else:
-        stdscr.chgat(y, 0, curses.color_pair(0) | curses.A_NORMAL)
+        stdscr.chgat(y, 0, curses.color_pair(0))
 
 
 def reprint(stdscr, entries2print):
@@ -157,7 +157,7 @@ def reprint(stdscr, entries2print):
         stdscr.addstr(y, 0, entry['ie_key'].rjust(curses.COLS - 1))
         stdscr.addstr(y, 1, entry['title'][:curses.COLS-sitenamelen-3])
         reattr(stdscr, y, entry)
-    update_status_line(stdscr, mp)
+    update_status(stdscr, mp)
 
 
 def move(stdscr, entries, y, delta):
@@ -214,18 +214,15 @@ config.read(USER_CONFIG if isfile(USER_CONFIG) else SYSTEM_CONFIG)
 mode = config.get('comp', 'play-mode', fallback='play-current')
 video = config.get('mpv', 'video', fallback='auto')
 video_output = config.get('mpv', 'video-output', fallback=None)
-ytdlf = config.get('youtube-dl', 'format', fallback='best')
+ytdl_opts = {'format': config.get('youtube-dl', 'format', fallback='best')}
 
 if args.json_playlist:
     with open(args.json_playlist) as f:
         entries = json.load(f)
 elif args.youtube_playlist:
-    # Extremely gross hack
-    raw_json = subprocess.run(['youtube-dl', '--flat-playlist',
-                               '--dump-single-json', args.youtube_playlist],
-                              stdout=subprocess.PIPE).stdout
-    entries = json.load(StringIO(raw_json.decode()))['entries']
-#setno(entries, ['error', 'playing', 'selected', 'current'])
+    with YoutubeDL({'extract_flat': 'in_playlist', 'quiet': True}) as ytdl:
+        info = ytdl.extract_info(args.youtube_playlist, download=False)
+        entries = info.get('entries', {})
 
 # Init curses screen
 stdscr = curses.initscr()
@@ -253,13 +250,13 @@ curses.init_pair(14, -1, 6)
 # Init mpv
 makedirs(expanduser(dirname(MPV_LOG)), exist_ok=True)
 mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
-         log_handler=mpv_logger, ytdl=True, ytdl_format=ytdlf)
+         log_handler=mpv_logger, ytdl=True, ytdl_format=ytdl_opts['format'])
 if video_output: mp['vo'] = video_output
 mp._set_property('vid', video)
-mp.observe_property('mute', lambda foo: update_status_line(stdscr, mp))
-mp.observe_property('pause', lambda foo: update_status_line(stdscr, mp))
-mp.observe_property('time-pos', lambda foo: update_status_line(stdscr, mp))
-mp.observe_property('vid', lambda foo: update_status_line(stdscr, mp))
+mp.observe_property('mute', lambda foo: update_status(stdscr, mp))
+mp.observe_property('pause', lambda foo: update_status(stdscr, mp))
+mp.observe_property('time-pos', lambda foo: update_status(stdscr, mp))
+mp.observe_property('vid', lambda foo: update_status(stdscr, mp))
 
 # Print initial content
 start = 0
@@ -271,63 +268,21 @@ file = ''   # initial path of the file to dump the current playlist
 
 c = stdscr.getch()
 while c != 113:     # letter q
-    if c == curses.KEY_RESIZE:
-        curses.update_lines_cols()
-        if curses.COLS < MODE_STR_LEN + 42 or curses.LINES < 4:
-            stdscr.clear()
-            sizeerr = _('Current size: {}x{}. Minimum size: {}x4.').format(
-                curses.COLS,
-                curses.LINES,
-                MODE_STR_LEN + 42
-            )
-            stdscr.addstr(0, 0, sizeerr)
-        else:
-            start += y - 1
-            y = 1
-            reprint(stdscr, entries[start : start+curses.LINES-3])
-    elif c == curses.KEY_F5:    # F5
-        reprint(stdscr, entries[start : start+curses.LINES-3])
-    elif c in (107, curses.KEY_UP):     # letter k or up arrow
-        y = move(stdscr, entries, y, -1)
-    elif c in (106, curses.KEY_DOWN):   # letter j or down arrow
-        y = move(stdscr, entries, y, 1)
-    elif c == curses.KEY_PPAGE:     # page up
-        y = move(stdscr, entries, y, 4 - curses.LINES)
-    elif c == curses.KEY_NPAGE:     # page down
-        y = move(stdscr, entries, y, curses.LINES - 4)
-    elif c == curses.KEY_HOME:  # home
-        y = move(stdscr, entries, y, -len(entries))
-    elif c == curses.KEY_END:   # end
-        y = move(stdscr, entries, y, len(entries))
-    elif c == curses.KEY_LEFT:      # left arrow
-        if mp._get_property('duration', int):
-            mp.seek(-2.5)
-    elif c == curses.KEY_RIGHT:     # right arrow
-        if mp._get_property('duration', int):
-            mp.seek(2.5)
-    elif c == 99:   # letter c
-        i = start + y - 1
-        entries[i]['selected'] = not entries[i].setdefault('selected', False)
-        y = move(stdscr, entries, y, 1)
-    elif c == 112:  # letter p
+    if c == 10:     # curses.KEY_ENTER doesn't work
         mp._set_property('pause', False, bool)
-        play_thread = Thread(target=play)
-        play_thread.daemon = True
+        play_thread = Thread(target=play, daemon=True)
         play_thread.start()
     elif c == 32:   # space
         mp._toggle_property('pause')
-    elif c == 109:  # letter m
-        mode = MODES[(MODES.index(mode) + 1) % 8]
-        update_status_line(stdscr, mp)
-    elif c == 77:   # letter M
-        mode = MODES[(MODES.index(mode) - 1) % 8]
-        update_status_line(stdscr, mp)
     elif c == 65:   # letter A
         mp._toggle_property('mute')
+    elif c == 77:   # letter M
+        mode = MODES[(MODES.index(mode) - 1) % 8]
+        update_status(stdscr, mp)
     elif c == 86:   # letter V
         mp._set_property('vid',
                          'auto' if mp._get_property('vid') == 'no' else 'no')
-    elif c == 83:   # letter S
+    elif c == 87:   # letter W
         prompt = _('Save playlist to [{}]:').format(file)
         stdscr.addstr(curses.LINES - 1, 0, prompt)
         curses.curs_set(True)
@@ -340,13 +295,57 @@ while c != 113:     # letter q
             with open(file, 'w') as f:
                 json.dump(entries, f)
         except:
-            update_status_line(stdscr, mp)
-            stdscr.addstr(curses.LINES - 1, 0,
+            update_status(stdscr, mp,
                           _("'{}': Can't open file for writing").format(file),
                           curses.color_pair(1))
         else:
-            update_status_line(stdscr, mp)
-            stdscr.addstr(curses.LINES - 1, 0, _("'{}' written").format(file))
+            update_status(stdscr, mp,
+                          _("'{}' written").format(file))
+    elif c == 99:   # letter c
+        i = start + y - 1
+        entries[i]['selected'] = not entries[i].setdefault('selected', False)
+        y = move(stdscr, entries, y, 1)
+    elif c == 109:  # letter m
+        mode = MODES[(MODES.index(mode) + 1) % 8]
+        update_status(stdscr, mp)
+    #elif c == 119:  # letter w
+    #    ytdl_opts = {'format': ytdlf}
+    #    with YoutubeDL(ytdl_opts) as ytdl:
+    #        ytdl.download([getlink)
+    elif c in (curses.KEY_UP, 107):     # up arrow or letter k
+        y = move(stdscr, entries, y, -1)
+    elif c in (curses.KEY_DOWN, 106):   # down arrow or letter j
+        y = move(stdscr, entries, y, 1)
+    elif c in (curses.KEY_LEFT, 104):   # left arrow or letter h
+        if mp._get_property('duration', int):
+            mp.seek(-2.5)
+    elif c in (curses.KEY_RIGHT, 108):  # right arrow or letter l
+        if mp._get_property('duration', int):
+            mp.seek(2.5)
+    elif c == curses.KEY_HOME:  # home
+        y = move(stdscr, entries, y, -len(entries))
+    elif c == curses.KEY_END:   # end
+        y = move(stdscr, entries, y, len(entries))
+    elif c == curses.KEY_NPAGE:     # page down
+        y = move(stdscr, entries, y, curses.LINES - 4)
+    elif c == curses.KEY_PPAGE:     # page up
+        y = move(stdscr, entries, y, 4 - curses.LINES)
+    elif c == curses.KEY_F5:    # F5
+        reprint(stdscr, entries[start : start+curses.LINES-3])
+    elif c == curses.KEY_RESIZE:
+        curses.update_lines_cols()
+        if curses.COLS < MODE_STR_LEN + 42 or curses.LINES < 4:
+            stdscr.clear()
+            sizeerr = _('Current size: {}x{}. Minimum size: {}x4.').format(
+                curses.COLS,
+                curses.LINES,
+                MODE_STR_LEN + 42
+            )
+            stdscr.addstr(0, 0, sizeerr[:curses.LINES*curses.COLS])
+        else:
+            start += y - 1
+            y = 1
+            reprint(stdscr, entries[start : start+curses.LINES-3])
     c = stdscr.getch()
 
 curses.nocbreak()
