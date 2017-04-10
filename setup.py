@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 
 from distutils.core import setup
+from os import walk
+from os.path import join
 from sys import prefix
 
 with open('README.rst') as f:
     long_description = f.read()
 
-setup(name='comp', version='0.1.1a3',
+setup(name='comp', version='0.1.1a4',
       url='https://github.com/McSinyx/comp',
       description=('Curses Online Media Player'),
       long_description=long_description,
       author='Nguyễn Gia Phong', author_email='vn.mcsinyx@gmail.com',
       py_modules=['mpv'], scripts=['comp'],
       data_files=[
-          ('{}/share/locale/vi/LC_MESSAGES/'.format(prefix), ['locale/vi/LC_MESSAGES/comp.mo']),
+          *((join(prefix, 'share', i[0]), [join(i[0], 'comp.mo')])
+            for i in walk('locale') if i[2]),
           ('/etc/comp', ['settings.ini'])
       ], classifiers=[
           'Development Status :: 3 - Alpha',
