@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "POT-Creation-Date: 2017-04-05 11:00+0700\n"
-"PO-Revision-Date: 2017-04-06 22:29+0700\n"
+"PO-Revision-Date: 2017-04-22 11:32+0700\n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -56,8 +56,8 @@ msgstr "Nguồn"
 msgid "Current size: {}x{}. Minimum size: {}x4."
 msgstr "Kích thước hiện tại: {}x{}. Kích thước tối thiểu: {}x4."
 
-msgid "Save playlist to [{}]:"
-msgstr "Lưu playlist tại [{}]:"
+msgid "Save playlist to [{}]: "
+msgstr "Lưu playlist tại [{}]: "
 
 msgid "'{}': Can't open file for writing"
 msgstr "'{}': Không mở được tệp để ghi"
@@ -70,3 +70,12 @@ msgstr "đường dẫn đến playlist ở định dạng JSON"
 
 msgid "URL to an playlist on Youtube"
 msgstr "URL của playlist trên Youtube"
+
+msgid "Add URL: "
+msgstr "Thêm URL: "
+
+msgid "Open JSON playlist: "
+msgstr "Mở playlist định dạnh JSON: "
+
+msgid "Open online playlist: "
+msgstr "Mở playlist trực tuyến: "
