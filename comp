@@ -23,7 +23,6 @@ from configparser import ConfigParser
 from curses.ascii import ctrl
 from datetime import datetime
 from gettext import bindtextdomain, gettext, textdomain
-from io import StringIO
 from itertools import cycle
 from os import linesep, makedirs
 from os.path import abspath, dirname, expanduser, isfile
@@ -49,7 +48,7 @@ MODE_STR_LEN = max(len(_(mode)) for mode in MODES)
 
 def mpv_logger(loglevel, component, message):
     mpv_log = '{} [{}] {}: {}{}'.format(datetime.isoformat(datetime.now()),
-                                    loglevel, component, message, linesep)
+                                        loglevel, component, message, linesep)
     with open(MPV_LOG, 'a') as f:
         f.write(mpv_log)
 
@@ -68,35 +67,7 @@ def getlink(entry):
                                  ie_key=entry.get('ie_key')).get('webpage_url')
 
 
-def choose_from(mode1):
-    if mode1 == 'all': return entries
-    else: return [entry for entry in entries if entry.setdefault(mode1, False)]
-
-
-def playlist(mode):
-    """Return a generator of entries to be played."""
-    action = mode.split('-')[0]
-    entries2play = choose_from(mode.split('-')[1])
-    # Somehow yield have to be used instead of returning a generator
-    if action == 'play':
-        for entry in entries2play: yield entry
-    elif action == 'repeat':
-        for entry in cycle(entries2play): yield entry
-    elif entries2play:
-        while True: yield choice(entries2play)
-
-
-def play():
-    for entry in playlist(mode):
-        setno(entries, ['playing'])
-        reprint(stdscr, entries[start : start+curses.LINES-3])
-        entries[entries.index(entry)]['playing'] = True
-        reprint(stdscr, entries[start : start+curses.LINES-3])
-        mp.play(getlink(entry))
-        mp.wait_for_playback()
-
-
-def secpair2hhmmss(pos, duration):
+def _secpair2hhmmss(pos, duration):
     """Quick hack to convert a pair of seconds to HHMMSS / HHMMSS
     string as MPV.get_property_osd_string isn't available.
     """
@@ -104,126 +75,188 @@ def secpair2hhmmss(pos, duration):
     postime, durationtime = gmtime(pos), gmtime(duration)
     # Let's hope media durations are shorter than a day
     timestr = '%M:%S' if duration < 3600 else '%H:%M:%S'
-    return '{} / {}'.format(strftime(timestr, postime),
-                            strftime(timestr, durationtime))
+    return ' {} / {}'.format(strftime(timestr, postime),
+                             strftime(timestr, durationtime))
 
 
-def update_status(stdscr, mp, message='', msgattr=curses.A_NORMAL):
-    left = ' ' + secpair2hhmmss(mp._get_property('time-pos', int),
-                                mp._get_property('duration', int))
-    right = ' {} {}{} '.format(_(mode),
-                               ' ' if mp._get_property('mute', bool) else 'A',
-                               ' ' if mp._get_property('vid') == 'no' else 'V')
-    if left != ' ':
-        left += ' | ' if mp._get_property('pause', bool) else ' > '
-        stdscr.addstr(curses.LINES - 2, 0, left, curses.color_pair(14))
-        title_len = curses.COLS - len(left + right)
-        center = mp._get_property('media-title').ljust(title_len)[:title_len]
-        stdscr.addstr(curses.LINES - 2, len(left), center,
-                      curses.color_pair(14) | curses.A_BOLD)
-        stdscr.addstr(curses.LINES - 2, len(left + center), right,
-                      curses.color_pair(14))
-    else:
-        stdscr.addstr(curses.LINES - 2, 0, right.rjust(curses.COLS),
-                      curses.color_pair(14))
-    stdscr.move(curses.LINES - 1, 0)
-    stdscr.clrtoeol()
-    stdscr.addstr(curses.LINES - 1, 0, message, msgattr)
-    stdscr.refresh()
+class Comp(object):
+    """Meta object for drawing and playing."""
+    def __new__(cls, entries, mode, mpv_vo, mpv_vid, ytdlf):
+        self = object.__new__(cls)
+        self.start = 0
+        self.y = 1
+        self.mode = mode
+        self.entries = entries
+        self.playlist = (i for i in [])     # an empty generator?
+        self.stdscr = curses.initscr()
+        self.mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
+                      log_handler=mpv_logger, ytdl=True, ytdl_format=ytdlf)
+        if mpv_vo: self.mp['vo'] = mpv_vo
+        self.mp._set_property('vid', mpv_vid)
+        return self
 
-
-def reattr(stdscr, y, entry):
-    invert = 8 if entry.setdefault('current', False) else 0
-    if entry.setdefault('error', False):
-        stdscr.chgat(y, 0, curses.color_pair(1 + invert) | curses.A_BOLD)
-    elif entry.setdefault('playing', False):
-        stdscr.chgat(y, 0, curses.color_pair(3 + invert) | curses.A_BOLD)
-    elif entry.setdefault('selected', False):
-        stdscr.chgat(y, 0, curses.color_pair(5 + invert) | curses.A_BOLD)
-    elif invert:
-        stdscr.chgat(y, 0, curses.color_pair(12) | curses.A_BOLD)
-    else:
-        stdscr.chgat(y, 0, curses.color_pair(0))
-
-
-def reprint(stdscr, entries2print):
-    stdscr.clear()
-    stdscr.addstr(0, 1, _('Title'))
-    sitenamelen = max(max(len(entry['ie_key']) for entry in entries), 6)
-    stdscr.addstr(0, curses.COLS - sitenamelen - 1, _('Source'))
-    stdscr.chgat(0, 0, curses.color_pair(10) | curses.A_BOLD)
-    for i, entry in enumerate(entries2print):
-        y = i + 1
-        stdscr.addstr(y, 0, entry['ie_key'].rjust(curses.COLS - 1))
-        stdscr.addstr(y, 1, entry['title'][:curses.COLS-sitenamelen-3])
-        reattr(stdscr, y, entry)
-    update_status(stdscr, mp)
-
-
-def initprint(stdscr, entries):
-    """Print initial content."""
-    global start, y
-    start, y = 0, 1
-    if not entries:
-        return
-    setno(entries, ['current', 'error', 'playing', 'selected'])
-    entries[0]['current'] = True
-    reprint(stdscr, entries[:curses.LINES-3])
-
-
-def move(stdscr, entries, y, delta):
-    global start
-    if start + y + delta < 1:
-        if start + y == 1:
-            return 1
-        setno(entries, ['current'])
-        start = 0
+    def __init__(self):
+        setno(entries, ['current', 'error', 'playing', 'selected'])
         entries[0]['current'] = True
-        reprint(stdscr, entries[:curses.LINES-3])
-        return 1
-    elif start + y + delta > len(entries):
-        start = max(len(entries) - curses.LINES + 3, 0)
-        y = min(curses.LINES - 3, len(entries))
-        setno(entries, ['current'])
-        entries[-1]['current'] = True
-        reprint(stdscr, entries[-curses.LINES+3:])
+
+        curses.noecho()
+        curses.cbreak()
+        self.stdscr.keypad(True)
+        curses.curs_set(False)
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, 1, -1)
+        curses.init_pair(2, 2, -1)
+        curses.init_pair(3, 3, -1)
+        curses.init_pair(4, 4, -1)
+        curses.init_pair(5, 5, -1)
+        curses.init_pair(6, 6, -1)
+        curses.init_pair(7, 7, -1)
+        curses.init_pair(8, -1, 7)
+        curses.init_pair(9, -1, 1)
+        curses.init_pair(10, -1, 2)
+        curses.init_pair(11, -1, 3)
+        curses.init_pair(12, -1, 4)
+        curses.init_pair(13, -1, 5)
+        curses.init_pair(14, -1, 6)
+
+        self.mp._set_property('vid', mpv_vid)
+        def updatestt(void): self.update_status()
+        self.mp.observe_property('mute', updatestt)
+        self.mp.observe_property('pause', updatestt)
+        self.mp.observe_property('time-pos', updatestt)
+        self.mp.observe_property('vid', updatestt)
+
+    def update_status(self, message='', msgattr=curses.A_NORMAL):
+        right = ' {} {}{} '.format(
+            _(mode), ' ' if self.mp._get_property('mute', bool) else 'A',
+            ' ' if mp._get_property('vid') == 'no' else 'V')
+        try:
+            left = _secpair2hhmmss(self.mp._get_property('time-pos', int),
+                                   self.mp._get_property('duration', int))
+        except:
+            left += ' | ' if self.mp._get_property('pause', bool) else ' > '
+            self.stdscr.addstr(curses.LINES - 2, 0, right.rjust(curses.COLS),
+                               curses.color_pair(14))
+        else:
+            stdscr.addstr(curses.LINES - 2, 0, left, curses.color_pair(14))
+            title_len = curses.COLS - len(left + right)
+            center = self.entries.setdefault('title', self.mp._get_property('media-title')).ljust(title_len)[:title_len]
+            self.stdscr.addstr(curses.LINES - 2, len(left), center,
+                               curses.color_pair(14) | curses.A_BOLD)
+            self.stdscr.addstr(curses.LINES - 2, len(left + center), right,
+                               curses.color_pair(14))
+        finally:
+            self.stdscr.move(curses.LINES - 1, 0)
+            self.stdscr.clrtoeol()
+            self.stdscr.addstr(curses.LINES - 1, 0, message, msgattr)
+            self.stdscr.refresh()
+
+    def choose_from(mode1):
+        if mode1 == 'all': return entries
+        else: return [entry for entry in entries if entry.setdefault(mode1, False)]
+
+    def update_playlist(self):
+        action = self.mode.split('-')[0]
+        entries2play = choose_from(mode.split('-')[1])
+        # Somehow yield have to be used instead of returning a generator
+        if action == 'play':
+            for entry in entries2play: yield entry
+        elif action == 'repeat':
+            for entry in cycle(entries2play): yield entry
+        elif entries2play:
+            while True: yield choice(entries2play)
+
+    def play(self):
+        for entry in playlist(self.mode):
+            setno(entries, ['playing'])
+            reprint(stdscr, entries[start : start+curses.LINES-3])
+            entries[entries.index(entry)]['playing'] = True
+            reprint(stdscr, entries[start : start+curses.LINES-3])
+            mp.play(entry.setdefault('webpage_url', getlink(entry)))
+            mp.wait_for_playback()
+
+    def reattr(self, entry):
+        invert = 8 if entry.setdefault('current', False) else 0
+        if entry.setdefault('error', False):
+            self.stdscr.chgat(self.y, 0, curses.color_pair(1 + invert) | curses.A_BOLD)
+        elif entry.setdefault('playing', False):
+            self.stdscr.chgat(self.y, 0, curses.color_pair(3 + invert) | curses.A_BOLD)
+        elif entry.setdefault('selected', False):
+            self.stdscr.chgat(self.y, 0, curses.color_pair(5 + invert) | curses.A_BOLD)
+        elif invert:
+            self.stdscr.chgat(self.y, 0, curses.color_pair(12) | curses.A_BOLD)
+        else:
+            self.stdscr.chgat(self.y, 0, curses.color_pair(0))
+
+    def reprint(stdscr, entries2print):
+        stdscr.clear()
+        stdscr.addstr(0, 1, _('Title'))
+        sitenamelen = max(max(len(entry['ie_key']) for entry in entries), 6)
+        stdscr.addstr(0, curses.COLS - sitenamelen - 1, _('Source'))
+        stdscr.chgat(0, 0, curses.color_pair(10) | curses.A_BOLD)
+        for i, entry in enumerate(entries2print):
+            y = i + 1
+            stdscr.addstr(y, 0, entry['ie_key'].rjust(curses.COLS - 1))
+            stdscr.addstr(y, 1, entry.get('title', '')[:curses.COLS-sitenamelen-3])
+            reattr(stdscr, y, entry)
+        update_status(stdscr, mp)
+
+    def move(self, delta):
+        if self.start + self.y + delta < 1:
+            if start + y == 1:
+                return 1
+            setno(entries, ['current'])
+            start = 0
+            entries[0]['current'] = True
+            reprint(stdscr, entries[:curses.LINES-3])
+            return 1
+        elif start + y + delta > len(entries):
+            start = max(len(entries) - curses.LINES + 3, 0)
+            y = min(curses.LINES - 3, len(entries))
+            setno(entries, ['current'])
+            entries[-1]['current'] = True
+            reprint(stdscr, entries[-curses.LINES+3:])
+            return y
+
+        if y + delta < 1:
+            start += y + delta - 1
+            y = 1
+            setno(entries, ['current'])
+            entries[start]['current'] = True
+            reprint(stdscr, entries[start : start+curses.LINES-3])
+        elif y + delta > curses.LINES - 3:
+            start += y + delta - curses.LINES + 3
+            y = curses.LINES - 3
+            setno(entries, ['current'])
+            entries[start + curses.LINES - 4]['current'] = True
+            reprint(stdscr, entries[start : start+curses.LINES-3])
+        else:
+            entries[start + y - 1]['current'] = False
+            reattr(stdscr, y, entries[start + y - 1])
+            y = y + delta
+            entries[start + y - 1]['current'] = True
+            reattr(stdscr, y, entries[start + y - 1])
+            stdscr.refresh()
         return y
 
-    if y + delta < 1:
-        start += y + delta - 1
-        y = 1
-        setno(entries, ['current'])
-        entries[start]['current'] = True
-        reprint(stdscr, entries[start : start+curses.LINES-3])
-    elif y + delta > curses.LINES - 3:
-        start += y + delta - curses.LINES + 3
-        y = curses.LINES - 3
-        setno(entries, ['current'])
-        entries[start + curses.LINES - 4]['current'] = True
-        reprint(stdscr, entries[start : start+curses.LINES-3])
-    else:
-        entries[start + y - 1]['current'] = False
-        reattr(stdscr, y, entries[start + y - 1])
-        y = y + delta
-        entries[start + y - 1]['current'] = True
-        reattr(stdscr, y, entries[start + y - 1])
-        stdscr.refresh()
-    return y
+    def close(self):
+        curses.nocbreak()
+        self.stdscr.keypad(False)
+        curses.echo()
+        curses.endwin()
+        self.mp.terminate()
 
 
 parser = ArgumentParser(description=_("Curses Online Media Player"))
-parser.add_argument('-j', '--json-playlist', required=False,
+parser.add_argument('-j', '--json-playlist', required=False, metavar='path',
                     help=_('path to playlist in JSON format'))
-parser.add_argument('-y', '--youtube-playlist', required=False,
+parser.add_argument('-u', '--online-playlist', required=False, metavar='URL',
                     help=_('URL to an playlist on Youtube'))
 args = parser.parse_args()
 
 config = ConfigParser()
 config.read(USER_CONFIG if isfile(USER_CONFIG) else SYSTEM_CONFIG)
-mode = config.get('comp', 'play-mode', fallback='play-current')
-video = config.get('mpv', 'video', fallback='auto')
-video_output = config.get('mpv', 'video-output', fallback=None)
-ytdl_opts = {'format': config.get('youtube-dl', 'format', fallback='best')}
 
 if args.json_playlist:
     json_file = args.json_playlist
@@ -232,49 +265,23 @@ if args.json_playlist:
 elif args.youtube_playlist:
     with YoutubeDL({'extract_flat': 'in_playlist', 'quiet': True}) as ytdl:
         info = ytdl.extract_info(args.youtube_playlist, download=False)
-        entries = info.get('entries', {})
+        entries = info.get('entries', [])
     json_file = ''
 else:
     entries = []
     json_file = ''
 
-# Init curses screen
-stdscr = curses.initscr()
-curses.noecho()
-curses.cbreak()
-stdscr.keypad(True)
-curses.curs_set(False)
-curses.start_color()
-curses.use_default_colors()
-curses.init_pair(1, 1, -1)
-curses.init_pair(2, 2, -1)
-curses.init_pair(3, 3, -1)
-curses.init_pair(4, 4, -1)
-curses.init_pair(5, 5, -1)
-curses.init_pair(6, 6, -1)
-curses.init_pair(7, 7, -1)
-curses.init_pair(8, -1, 7)
-curses.init_pair(9, -1, 1)
-curses.init_pair(10, -1, 2)
-curses.init_pair(11, -1, 3)
-curses.init_pair(12, -1, 4)
-curses.init_pair(13, -1, 5)
-curses.init_pair(14, -1, 6)
+makedirs(dirname(mpv_log), exist_ok=True)
 
-# Init mpv
-makedirs(expanduser(dirname(MPV_LOG)), exist_ok=True)
-mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
-         log_handler=mpv_logger, ytdl=True, ytdl_format=ytdl_opts['format'])
-if video_output: mp['vo'] = video_output
-mp._set_property('vid', video)
-mp.observe_property('mute', lambda foo: update_status(stdscr, mp))
-mp.observe_property('pause', lambda foo: update_status(stdscr, mp))
-mp.observe_property('time-pos', lambda foo: update_status(stdscr, mp))
-mp.observe_property('vid', lambda foo: update_status(stdscr, mp))
+comp = Comp(
+    entries=entries,
+    mode=config.get('comp', 'play-mode', fallback='play-current'),
+    mpv_vo=config.get('mpv', 'video-output', fallback=None),
+    mpv_vid=config.get('mpv', 'video', fallback='auto'),
+    ytdlf=config.get('youtube-dl', 'format', fallback='best'))
 
-initprint(stdscr, entries)
-c = stdscr.getch()
-while c != 113:     # letter q
+while True:
+    c = stdscr.getch()
     if c == 10:     # curses.KEY_ENTER doesn't work
         if not entries: continue
         mp._set_property('pause', False, bool)
@@ -331,6 +338,8 @@ while c != 113:     # letter q
     elif c == 109:  # letter m
         mode = MODES[(MODES.index(mode) + 1) % 8]
         update_status(stdscr, mp)
+    elif c == 113:  # letter q
+        comp.close()
     elif c == 119:  # letter w
         if not entries: continue
         with YoutubeDL({'format': ytdlf}) as ytdl:
@@ -375,11 +384,3 @@ while c != 113:     # letter q
             start += y - 1
             y = 1
             reprint(stdscr, entries[start : start+curses.LINES-3])
-    c = stdscr.getch()
-
-curses.nocbreak()
-stdscr.keypad(False)
-curses.echo()
-curses.endwin()
-
-del mp
