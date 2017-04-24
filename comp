@@ -295,7 +295,10 @@ while c != 113:     # letter q
         play_thread = Thread(target=play, daemon=True)
         play_thread.start()
     elif c == 32:   # space
-        mp._toggle_property('pause')
+        if not entries: continue
+        i = start + y - 1
+        entries[i]['selected'] = not entries[i].setdefault('selected', False)
+        y = move(stdscr, entries, y, 1)
     elif c == 65:   # letter A
         mp._toggle_property('mute')
     elif c == 77:   # letter M
@@ -354,11 +357,6 @@ while c != 113:     # letter q
                 entries[start + y]['current'] = False
                 entries[start + y - 1]['current'] = True
                 reprint(stdscr, entries[start : start+curses.LINES-3])
-    elif c == 99:   # letter c
-        if not entries: continue
-        i = start + y - 1
-        entries[i]['selected'] = not entries[i].setdefault('selected', False)
-        y = move(stdscr, entries, y, 1)
     elif c == 100:  # letter d
         if not entries: continue
         i = start + y - 1
@@ -374,6 +372,8 @@ while c != 113:     # letter q
     elif c == 109:  # letter m
         mode = MODES[(MODES.index(mode) + 1) % 8]
         update_status(stdscr, mp)
+    elif c == 112:  # letter p
+        mp._toggle_property('pause')
     elif c == 119:  # letter w
         if not entries: continue
         with YoutubeDL({'format': ytdlf}) as ytdl:
