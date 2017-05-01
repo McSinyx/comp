@@ -4,6 +4,8 @@ comp - Curses Online Media Player
 
 This program is a curses front-end for mpv and youtube-dl.
 
+.. image:: https://ipfs.io/ipfs/QmVhz4F53Sym48kXC7vhDMFsfvJ7iL8gaQ1EgoQADJvuAB
+
 Installation
 ------------
 
@@ -15,7 +17,10 @@ This program currently only runs on Python 3.5+ on operating systems that the
 the BSDs).
 
 It also depends on ``youtube-dl`` and ``libmpv``. Both of those should be
-available in your operating system's repository. 
+available in your operating system's repository, although it's more
+recommended to install ``youtube-dl`` using ``pip`` (currently most distros
+still use Python 2 as default so the command is something like ``pip3 install
+youtube-dl``).
 
 Installing comp
 ^^^^^^^^^^^^^^^
@@ -25,7 +30,7 @@ this moment, I'd suggest you to use ``git`` to get the software::
 
    git clone https://github.com/McSinyx/comp.git
    cd comp
-   sudo ./setup.py install --user
+   sudo ./setup.py install
 
 Usage
 -----
@@ -52,17 +57,25 @@ Keyboard control
 +==============+=============================================+
 | Return       | Start playing                               |
 +--------------+---------------------------------------------+
-| Space        | Toggle pause                                |
+| Space        | Select the current track                    |
++--------------+---------------------------------------------+
+| ``<``, ``>`` | Go forward/backward in the playlist         |
 +--------------+---------------------------------------------+
 | ``A``        | Toggle mute                                 |
++--------------+---------------------------------------------+
+| ``U``        | Open online playlist                        |
 +--------------+---------------------------------------------+
 | ``V``        | Toggle video                                |
 +--------------+---------------------------------------------+
 | ``W``        | Save the current playlist under JSON format |
 +--------------+---------------------------------------------+
-| ``c``        | Select the current track                    |
-+--------------+---------------------------------------------+
 | ``m``, ``M`` | Cycle through playing modes                 |
++--------------+---------------------------------------------+
+| ``d``        | Delete current entry                        |
++--------------+---------------------------------------------+
+| ``p``        | Toggle pause                                |
++--------------+---------------------------------------------+
+| ``w``        | Download tracks set by playing mode         |
 +--------------+---------------------------------------------+
 | Up, ``k``    | Move a single line up                       |
 +--------------+---------------------------------------------+
