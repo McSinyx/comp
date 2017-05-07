@@ -8,7 +8,7 @@ from sys import prefix
 with open('README.rst') as f:
     long_description = f.read()
 
-setup(name='comp', version='0.2.0a1',
+setup(name='comp', version='0.2.1',
       url='https://github.com/McSinyx/comp',
       description=('Curses Online Media Player'),
       long_description=long_description,
@@ -19,7 +19,7 @@ setup(name='comp', version='0.2.0a1',
             for i in walk('locale') if i[2]),
           ('/etc/comp', ['settings.ini'])
       ], classifiers=[
-          'Development Status :: 3 - Alpha',
+          'Development Status :: 4 - Beta',
           'Environment :: Console :: Curses',
           'Intended Audience :: End Users/Desktop',
           'License :: OSI Approved :: GNU Affero General Public License v3',
