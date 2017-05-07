@@ -18,7 +18,9 @@
 
 import curses
 import json
+import re
 from argparse import ArgumentParser
+from collections import deque
 from configparser import ConfigParser
 from curses.ascii import ctrl
 from datetime import datetime
@@ -26,7 +28,7 @@ from functools import reduce
 from gettext import gettext as _, textdomain
 from itertools import cycle
 from os import linesep, makedirs
-from os.path import abspath, dirname, expanduser, isfile
+from os.path import abspath, dirname, expanduser, isdir, isfile, join
 from random import choice
 from time import gmtime, strftime
 from threading import Thread
@@ -42,9 +44,10 @@ textdomain('comp')
 SYSTEM_CONFIG = '/etc/comp/settings.ini'
 USER_CONFIG = expanduser('~/.config/comp/settings.ini')
 MPV_LOG = expanduser('~/.cache/comp/mpv.log')
-MODES = ('play-current', 'play-all', 'play-selected', 'repeat-current',
-         'repeat-all', 'repeat-selected', 'shuffle-all', 'shuffle-selected')
+MODES = ("play-current", "play-all", "play-selected", "repeat-current",
+         "repeat-all", "repeat-selected", "shuffle-all", "shuffle-selected")
 MODE_STR_LEN = max(len(_(mode)) for mode in MODES)
+DURATION_COL_LEN = max(len(_("Duration")), 8)
 
 
 def mpv_logger(loglevel, component, message):
@@ -54,12 +57,18 @@ def mpv_logger(loglevel, component, message):
         f.write(mpv_log)
 
 
+def justified(s, width):
+    """Return s left-justified of length width."""
+    return s.ljust(width)[:width]
+
+
 class Comp(object):
     """Meta object for drawing and playing.
 
     Attributes:
         active (bool): flag show if anything is being played
         entries (list): list of all tracks
+        json_file (str): path to save JSON playlist
         mode (str): the mode to pick and play tracks
         mp (MPV): an mpv instance
         play_backward (bool): flag show if to play the previous track
@@ -68,21 +77,58 @@ class Comp(object):
         playing (int): index of playing track in played
         playlist (iterator): iterator of tracks according to mode
         reading (bool): flag show if user input is being read
-        start (int): index of the first track to be printed on screen
+        search_res (iterator):  title-searched results
         scr (curses WindowObject): curses window object
+        start (int): index of the first track to be printed on screen
         vid (str): flag show if video output is enabled
         y (int): the current y-coordinate
     """
-    def __new__(cls, entries, mode, mpv_vo, mpv_vid, ytdlf):
+    def __new__(cls, entries, json_file, mode, mpv_vo, mpv_vid, ytdlf):
         self = super(Comp, cls).__new__(cls)
-        self.mode, self.vid = mode, mpv_vid
         self.active, self.play_backward, self.reading = False, False, False
         self.playing, self.start, self.y = -1, 0, 1
-        self.entries, self.playlist, self.played = entries, iter(()), []
+        self.json_file, self.mode, self.vid = json_file, mode, mpv_vid
+        self.entries, self.played = entries, []
+        self.playlist, self.search_res = iter(()), deque()
         self.mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
                       log_handler=mpv_logger, ytdl=True, ytdl_format=ytdlf)
         self.scr = curses.initscr()
         return self
+
+    def update_status(self, message='', msgattr=curses.A_NORMAL):
+        """Update the status lines at the bottom of the screen."""
+        def adds(s, a, y=curses.LINES-2, x=0):
+            if not self.reading: self.scr.addstr(y, x, s, a)
+
+        right = ' {} {}{} '.format(_(self.mode), ' ' if self.mp.mute else 'A',
+                                   ' ' if self.vid == 'no' else 'V')
+        adds(right.rjust(curses.COLS), curses.color_pair(12))
+        try:
+            timestr = '%M:%S' if int(self.mp.duration) < 3600 else '%H:%M:%S'
+            left = ' {} / {} {} '.format(
+                strftime(timestr, gmtime(int(self.mp.time_pos))),
+                strftime(timestr, gmtime(int(self.mp.duration))),
+                '|' if self.mp.pause else '>')
+            title_len = curses.COLS - len(left + right)
+            center = justified(self.mp.media_title, title_len)
+        except:
+            pass
+        else:
+            adds(left, curses.color_pair(12))
+            adds(center, curses.color_pair(12) | curses.A_BOLD, x=len(left))
+        if message:
+            adds(justified(message, curses.COLS - 1), msgattr,
+                 y=curses.LINES-1, x=0)
+        self.scr.refresh()
+
+    def getlink(self, entry):
+        """Return an URL from the given entry."""
+        if 'webpage_url' not in entry:
+            with YoutubeDL({'quiet': True}) as ytdl:
+                entry.update(ytdl.extract_info(entry['url'], download=False,
+                                               ie_key=entry.get('ie_key')))
+        self.uniform(entry)
+        return entry['webpage_url']
 
     def setno(self, *keys):
         """Set all keys of each entry in entries to False."""
@@ -90,68 +136,23 @@ class Comp(object):
             for key in keys:
                 entry[key] = False
 
-    def update_status(self, message='', msgattr=curses.A_NORMAL):
-        """Update the status lines at the bottom of the screen."""
-        def adds(s, a, y=curses.LINES-2, x=0):
-            if not self.reading: self.scr.addstr(y, x, s, a)
-
-        def sectoosd(pos, duration):
-            """Quick hack to convert a pair of seconds to HHMMSS/HHMMSS
-            string as MPV.get_property_osd_string isn't available.
-            """
-            postime, durationtime = gmtime(pos), gmtime(duration)
-            # Let's hope media durations are shorter than a day
-            timestr = '%M:%S' if duration < 3600 else '%H:%M:%S'
-            return '{} / {}'.format(strftime(timestr, postime),
-                                    strftime(timestr, durationtime))
-
-        right = ' {} {}{} '.format(
-            _(self.mode), ' ' if self.mp._get_property('mute', bool) else 'A',
-            ' ' if self.vid == 'no' else 'V')
-        adds(right.rjust(curses.COLS), curses.color_pair(12))
-        try:
-            left = ' {} {} '.format(
-                sectoosd(self.mp._get_property('time-pos', int),
-                         self.mp._get_property('duration', int)),
-                '|' if self.mp._get_property('pause', bool) else '>')
-            title_len = curses.COLS - len(left + right)
-            center = self.mp._get_property('media-title').ljust(title_len)[:title_len]
-        except:
-            pass
-        else:
-            adds(left, curses.color_pair(12))
-            adds(center, curses.color_pair(12) | curses.A_BOLD, x=len(left))
-        if message:
-            self.scr.move(curses.LINES - 1, 0)
-            self.scr.clrtoeol()
-            adds(message.ljust(curses.COLS)[:curses.COLS-1], msgattr,
-                 y=curses.LINES-1, x=0)
-        self.scr.refresh()
-
-    def getlink(self, entry):
-        """Return an URL from the given entry."""
-        with YoutubeDL({'quiet': True}) as ytdl:
-            return entry.setdefault('webpage_url', ytdl.extract_info(
-                entry['url'], download=False, ie_key=entry.get('ie_key')
-            ).get('webpage_url'))
-
     def play(self, force=False):
         """Play the next track."""
         def mpv_play(entry, force):
             self.active = True
             self.setno('playing')
             entry['playing'] = True
-            self.redraw()
-            self.mp._set_property('vid', self.vid)
+            self.mp.vid = self.vid
             try:
                 self.mp.play(self.getlink(entry))
             except:
                 entry['error'] = True
-            if force: self.mp._set_property('pause', False, bool)
+            self.print(entry)
+            if force: self.mp.pause = False
             self.mp.wait_for_playback()
             self.active = False
             entry['playing'] = False
-            self.redraw()
+            self.print(entry)
 
         if self.play_backward and -self.playing < len(self.played):
             self.playing -= 1
@@ -171,48 +172,66 @@ class Comp(object):
         play_thread = Thread(target=mpv_play, args=t, daemon=True)
         play_thread.start()
 
-    def generic_event_handler(self, event):
-        """Reprint status line and play next entry if the last one is
-        ended without caring about the event.
-        """
-        self.update_status()
-        if not self.active: self.play()
+    def uniform(self, entry):
+        """Standardize data format."""
+        for i in 'error', 'playing', 'selected': entry.setdefault(i, False)
+        entry.setdefault('ie_key', entry.get('extractor'))
+        entry.setdefault('duration', 0)
+        if 'title' not in entry:    # or 'webpage_url' not in entry:
+            with YoutubeDL({'quiet': True}) as ytdl:
+                entry.update(ytdl.extract_info(entry['url'], download=False,
+                                               ie_key=entry.get('ie_key')))
+        for i in entry.copy():
+            if i not in ('duration', 'error', 'playing', 'selected',
+                         'ie_key', 'title', 'url', 'webpage_url'):
+                entry.pop(i)
 
-    def reattr(self, y=None):
-        """Set the attributes of line y, if y is None the current line
-        will be picked."""
-        if y is None: y = self.y
-        entry = self.entries[self.start + y - 1]
+    def _writeln(self, y, title, duration, attr):
+        title_len = curses.COLS-DURATION_COL_LEN-3
+        title = justified(title, title_len)
+        duration = duration.ljust(DURATION_COL_LEN)
+        self.scr.addstr(y, 0, ' {} {} '.format(title, duration), attr)
+        self.scr.refresh()
+
+    def print(self, entry=None, y=None):
+        """Print the entry in the line y."""
+        if entry is y is None:
+            entry = self.current()
+            y = self.idx() - self.start + 1
+        elif entry is None:
+            entry = self.entries[self.start + y - 1]
+        elif y is None:
+            y = self.idx(entry) - self.start + 1
+        if y < 1 or y > curses.LINES - 3: return
+
+        self.uniform(entry)
         c = {'error': 1, 'playing': 3, 'selected': 5}
         color = ((8 if entry is self.current() else 0)
             | reduce(int.__xor__, (c.get(i, 0) for i in entry if entry[i])))
+        duration = strftime('%H:%M:%S', gmtime(entry['duration']))
         if color:
-            self.scr.chgat(y, 0, curses.color_pair(color) | curses.A_BOLD)
+            self._writeln(y, entry['title'], duration,
+                          curses.color_pair(color) | curses.A_BOLD)
         else:
-            self.scr.chgat(y, 0, curses.A_NORMAL)
+            self._writeln(y, entry['title'], duration,
+                          curses.A_NORMAL)
 
     def redraw(self):
         """Redraw the whole screen."""
-        def _max(a): return max(a) if a else 0
-        self.scr.clear()
-        self.scr.addstr(0, 1, _('Title'))
-        sitenamelen = max(_max([len(entry['ie_key']) for entry in self.entries]), 6)
-        self.scr.addstr(0, curses.COLS - sitenamelen - 1, _('Source'))
-        self.scr.chgat(0, 0, curses.color_pair(10) | curses.A_BOLD)
+        self._writeln(0, _("Title"), _("Duration"),
+                      curses.color_pair(10) | curses.A_BOLD)
         for i, entry in enumerate(self.entries[self.start:][:curses.LINES-3]):
-            self.scr.addstr(i + 1, 0, entry['ie_key'].rjust(curses.COLS - 1))
-            self.scr.addstr(i + 1, 1, entry.get('title', '')[:curses.COLS-sitenamelen-3])
-            self.reattr(i + 1)
+            self.print(entry, i + 1)
+        self.scr.clrtobot()
         self.update_status()
 
-    def __init__(self, entries, mode, mpv_vo, mpv_vid, ytdlf):
-        self.setno('error', 'playing', 'selected')
-
-        if mpv_vo: self.mp['vo'] = mpv_vo
-        self.mp.observe_property('mute', lambda event: self.update_status())
-        self.mp.observe_property('pause', lambda event: self.update_status())
-        self.mp.observe_property('time-pos', self.generic_event_handler)
-
+    def __init__(self, json_file, entries, mode, mpv_vo, mpv_vid, ytdlf):
+        if mpv_vo is not None: self.mp['vo'] = mpv_vo
+        self.mp.observe_property('mute', lambda x: self.update_status())
+        self.mp.observe_property('pause', lambda x: self.update_status())
+        self.mp.observe_property('time-pos', lambda x: self.update_status())
+        self.mp.observe_property('duration', lambda x: None if self.active
+                                                       else self.play())
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -226,9 +245,11 @@ class Comp(object):
 
     def __enter__(self): return self
 
-    def idx(self):
+    def idx(self, entry=None):
         """Return the index of the current entry."""
-        return self.start + self.y - 1
+        if entry is None:
+            return self.start + self.y - 1
+        return self.entries.index(entry)
 
     def current(self):
         """Return the current entry."""
@@ -242,9 +263,10 @@ class Comp(object):
         if pick == 'current':
             self.play_list = [self.current()]
         elif pick == 'all':
-            self.play_list = self.entries
+            self.play_list = deque(self.entries)
+            self.play_list.rotate(-self.idx())
         else:
-            self.play_list = [i for i in self.entries if i['selected']]
+            self.play_list = [i for i in self.entries if i.get('selected')]
 
     def update_playlist(self):
         """Update the playlist to be used by play function."""
@@ -256,12 +278,48 @@ class Comp(object):
             self.playlist = cycle(self.play_list)
         else:
             self.playlist = iter(lambda: choice(self.play_list), None)
-        self.played = self.played[:self.playing]
+        if self.playing < -1: self.played = self.played[:self.playing+1]
+
+    def gets(self, prompt):
+        """Print the prompt string at the bottom of the screen then read
+        from standard input.
+        """
+        self.scr.addstr(curses.LINES - 1, 0,
+                        justified(prompt, curses.COLS - 1))
+        self.reading = True
+        curses.curs_set(True)
+        curses.echo()
+        b = self.scr.getstr(curses.LINES - 1, len(prompt))
+        self.reading = False
+        curses.curs_set(False)
+        curses.noecho()
+        return b.decode()
+
+    def seek(self, amount, reference='relative', precision='default-precise'):
+        """Wrap mp.seek with a try clause to avoid crash when nothing is
+        being played.
+        """
+        try:
+            self.mp.seek(amount, reference, precision)
+        except:
+            pass
+
+    def next(self, force=False, backward=False):
+        comp.play_backward = backward
+        if self.active:
+            self.seek(100, 'absolute-percent')
+            if force: self.mp.pause = False
+        else:
+            self.play(force)
+
+    def download(self):
+        with YoutubeDL({'quiet': True}) as ytdl:
+            ytdl.download([self.getlink(i) for i in self.play_list])
 
     def move(self, delta):
         """Move to the relatively next delta entry."""
         if not (self.entries and delta): return
-        start, y = self.start, self.y
+        start, prev_entry = self.start, self.current()
         maxy = min(len(self.entries), curses.LINES - 3)
 
         if self.idx() + delta <= 0:
@@ -278,104 +336,158 @@ class Comp(object):
             self.y += delta
 
         if self.start == start:
-            self.reattr(y)
-            self.reattr()
-            self.scr.refresh()
+            self.print(prev_entry)
+            self.print()
         else:
             self.redraw()
 
-    def gets(self, prompt):
-        """Print the prompt string at the bottom of the screen then read
-        from standard input.
-        """
-        self.scr.addstr(curses.LINES - 1, 0, prompt)
-        self.reading = True
-        curses.curs_set(True)
-        curses.echo()
-        b = self.scr.getstr(curses.LINES - 1, len(prompt))
-        self.reading = False
-        curses.curs_set(False)
-        curses.noecho()
-        return b.decode()
+    def search(self, backward=False):
+        """Prompt then search for a pattern."""
+        p = re.compile(self.gets('/'), re.IGNORECASE)
+        entries = deque(self.entries)
+        entries.rotate(-self.idx())
+        self.search_res = deque(filter(
+            lambda entry: p.search(entry['title']) is not None, entries))
+        if backward: self.search_res.reverse()
+        if self.search_res:
+            self.move(self.idx(self.search_res[0]) - self.idx())
+        else:
+            self.update_status(_("Pattern not found"), curses.color_pair(1))
 
-    def seek(self, amount, reference='relative'):
-        """Quick hack to fix MPV seek-double bug."""
-        if reference == 'relative': amount /= 2
-        try:
-            self.mp.seek(amount, reference)
-        except:
-            pass
+    def next_search(self, backward=False):
+        """Repeat previous search."""
+        if self.search_res:
+            self.search_res.rotate(1 if backward else -1)
+            self.move(self.idx(self.search_res[0]) - self.idx())
+        else:
+            self.update_status(_("Pattern not found"), curses.color_pair(1))
+
+    def resize(self):
+        curses.update_lines_cols()
+        l = curses.LINES - 3
+        if curses.COLS < MODE_STR_LEN + 42 or l < 1:
+            sizeerr = _("Current size: {}x{}. Minimum size: {}x4.").format(
+                curses.COLS, curses.LINES, MODE_STR_LEN + 42)
+            self.scr.addstr(0, 0, sizeerr[:curses.LINES*curses.COLS-1])
+        elif self.y > l:
+            self.start += self.y - l
+            self.y = l
+            self.redraw()
+        elif 0 < self.start > len(self.entries) - l:
+            idx, self.start = self.idx(), min(0, len(entries) - l)
+            self.y = idx - self.start + 1
+            if self.y > l:
+                self.start += self.y - l
+                self.y = l
+            self.redraw()
+        else:
+            self.redraw()
 
     def __exit__(self, exc_type, exc_value, traceback):
         curses.nocbreak()
         self.scr.keypad(False)
         curses.echo()
         curses.endwin()
-        self.mp.terminate()
+        self.mp.quit()
 
 
 parser = ArgumentParser(description=_("Curses Online Media Player"))
 parser.add_argument('-c', '--config', required=False,
-                    help=_('path to custom config file'))
+                    help=_("location of the configuration file; either the\
+                            path to the config or its containing directory"))
+parser.add_argument('--vid', choices=('ID', 'auto', 'no'), required=False,
+                    help=_("initial video channel. auto selects the default,\
+                            no disables video"))
+parser.add_argument('--vo', required=False, metavar='DRIVER',
+                    help=_("specify the video output backend to be used. See\
+                            VIDEO OUTPUT DRIVERS in mpv(1) man page for\
+                            details and descriptions of available drivers"))
+parser.add_argument('-f', '--format', required=False, metavar='YTDL_FORMAT',
+                    help=_("video format/quality to be passed to youtube-dl"))
 parser.add_argument('-u', '--online-playlist', required=False, metavar='URL',
-                    help=_('URL to an playlist on Youtube'))
-parser.add_argument('-j', '--json-playlist', required=False, metavar='path',
-                    help=_('path to playlist in JSON format'))
+                    help=_("URL to an playlist on Youtube"))
+parser.add_argument('-j', '--json', required=False, metavar='JSON_PLAYLIST',
+                    help=_("path to playlist in JSON format. If\
+                            --online-playlist is already specified, this will\
+                            be used as the default file to save the playlist"))
 args = parser.parse_args()
 
 config = ConfigParser()
-config.read(USER_CONFIG if isfile(USER_CONFIG) else SYSTEM_CONFIG)
+if args.config is not None:
+    if isfile(args.config):
+        config_file = args.config
+    else:   #isdir(args.config_location):
+        config_file = join(args.config, 'settings.ini')
+elif isfile(USER_CONFIG):
+    config_file = USER_CONFIG
+else:
+    config_file = SYSTEM_CONFIG
+config.read(config_file)
 
-if args.json_playlist:
-    json_file = args.json_playlist
-    with open(json_file) as f:
-        entries = json.load(f)
-elif args.online_playlist:
+if args.json is not None:
+    json_file = args.json
+else:
+    json_file = ''
+
+if args.online_playlist is not None:
     with YoutubeDL({'extract_flat': 'in_playlist', 'quiet': True}) as ytdl:
         info = ytdl.extract_info(args.online_playlist, download=False)
-        entries = info.get('entries', [])
-    json_file = ''
+        entries = info.get('entries', [info])
 else:
-    entries = []
-    json_file = ''
+    try:
+        with open(json_file) as f: entries = json.load(f)
+    except FileNotFoundError:
+        entries = []
+
+if args.vid is not None:
+    vid = args.vid
+else:
+    vid = config.get('mpv', 'video', fallback='auto')
+
+if args.vo is not None:
+    vo = args.vo
+else:
+    vo = config.get('mpv', 'video-output', fallback=None)
+
+mode = config.get('comp', 'play-mode', fallback='play-current')
+
+if args.format is not None:
+    ytdlf = args.format
+else:
+    ytdlf = config.get('youtube-dl', 'format', fallback='best')
 
 makedirs(dirname(MPV_LOG), exist_ok=True)
 
-with Comp(
-    entries,
-    config.get('comp', 'play-mode', fallback='play-current'),
-    config.get('mpv', 'video-output', fallback=None),
-    config.get('mpv', 'video', fallback='auto'),
-    config.get('youtube-dl', 'format', fallback='best')
-) as comp:
+with Comp(entries, json_file, mode, vo, vid, ytdlf) as comp:
     c = comp.scr.getch()
     while c != 113:     # letter q
         if c == 10:     # curses.KEY_ENTER doesn't work
             comp.update_playlist()
-            if comp.active:
-                comp.seek(100, 'absolute-percent')
-                comp.mp._set_property('pause', False, bool)
-            else:
-                comp.play(force=True)
+            comp.next(force=True)
         elif c == 32:   # space
-            comp.current()['selected'] = not comp.current()['selected']
+            comp.current()['selected'] = not comp.current().get('selected')
             comp.move(1)
+        elif c == 47:   # /
+            comp.search()
         elif c == 60:   # <
             try:
-                if comp.mp._get_property('time-pos', int) < 5:
-                    comp.play_backward = True
-                    comp.seek(100, 'absolute-percent')
+                if comp.mp._get_property('time-pos', float) < 1:
+                    comp.next(backward=True)
                 else:
                     comp.seek(0, 'absolute')
             except:
                 pass
         elif c == 62:   # >
-            comp.seek(100, 'absolute-percent')
+            comp.next()
+        elif c == 63:   # ?
+            comp.search(backward=True)
         elif c == 65:   # letter A
             comp.mp._toggle_property('mute')
         elif c == 77:   # letter M
             comp.mode = MODES[(MODES.index(comp.mode) - 1) % 8]
             comp.update_status()
+        elif c == 78:  # letter N
+            comp.next_search(backward=True)
         elif c == 85:   # letter U
             with YoutubeDL({'extract_flat': True, 'quiet': True}) as ytdl:
                 try:
@@ -384,30 +496,26 @@ with Comp(
                 except:
                     comp.redraw()
                 else:
-                    comp.entries = info.get('entries', {})
+                    comp.entries = info.get('entries', [info])
                     comp.start, comp.y = 0, 1
-                    comp.setno('error', 'playing', 'selected')
                     comp.redraw()
         elif c == 86:   # letter V
             comp.vid = 'auto' if comp.vid == 'no' else 'no'
-            comp.mp._set_property('vid', comp.vid)
+            comp.mp.vid = comp.vid
             comp.update_status()
         elif c == 87:   # letter W
-            if not comp.entries: continue
-            s = comp.gets(_('Save playlist to [{}]: ').format(json_file))
-            if s: json_file = s
+            s = comp.gets(_("Save playlist to [{}]: ").format(comp.json_file))
+            if s: comp.json_file = s
             try:
-                makedirs(dirname(abspath(json_file)), exist_ok=True)
-                with open(json_file, 'w') as f:
-                    json.dump(entries, f)
+                makedirs(dirname(abspath(comp.json_file)), exist_ok=True)
+                with open(comp.json_file, 'w') as f: json.dump(comp.entries, f)
             except:
-                comp.update_status(
-                    _("'{}': Can't open file for writing").format(json_file),
-                    curses.color_pair(1))
+                errmsg = _("'{}': Can't open file for writing").format(
+                    comp.json_file)
+                comp.update_status(errmsg, curses.color_pair(1))
             else:
-                comp.update_status(_("'{}' written").format(json_file))
+                comp.update_status(_("'{}' written").format(comp.json_file))
         elif c == 100:  # letter d
-            if not comp.entries: continue
             i = comp.idx()
             if i + 1 < len(entries):
                 comp.entries.pop(i)
@@ -421,18 +529,20 @@ with Comp(
         elif c == 109:  # letter m
             comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
+        elif c == 110:  # letter n
+            comp.next_search()
         elif c == 119:  # letter w
             comp.update_play_list(comp.mode.split('-')[1])
-            with YoutubeDL({'quiet': True}) as ytdl:
-                ytdl.download([comp.getlink(i) for i in comp.play_list])
+            play_thread = Thread(target=comp.download, daemon=True)
+            play_thread.start()
         elif c in (curses.KEY_UP, 107):     # up arrow or letter k
             comp.move(-1)
         elif c in (curses.KEY_DOWN, 106):   # down arrow or letter j
             comp.move(1)
         elif c in (curses.KEY_LEFT, 104):   # left arrow or letter h
-            comp.seek(-5)
+            comp.seek(-5, precision='exact')
         elif c in (curses.KEY_RIGHT, 108):  # right arrow or letter l
-            comp.seek(5)
+            comp.seek(5, precision='exact')
         elif c == curses.KEY_HOME:  # home
             comp.move(-len(comp.entries))
         elif c == curses.KEY_END:   # end
@@ -441,17 +551,6 @@ with Comp(
             comp.move(curses.LINES - 4)
         elif c == curses.KEY_PPAGE:     # page up
             comp.move(4 - curses.LINES)
-        elif c == curses.KEY_F5:    # F5
-            comp.redraw()
-        elif c == curses.KEY_RESIZE:
-            curses.update_lines_cols()
-            if curses.COLS < MODE_STR_LEN + 42 or curses.LINES < 4:
-                comp.scr.clear()
-                sizeerr = _('Current size: {}x{}. Minimum size: {}x4.').format(
-                    curses.COLS, curses.LINES, MODE_STR_LEN + 42)
-                comp.scr.addstr(0, 0, sizeerr[:curses.LINES*curses.COLS])
-            else:
-                comp.start += comp.y - 1
-                comp.y = 1
-                comp.redraw()
+        elif c in (curses.KEY_F5, curses.KEY_RESIZE):
+            comp.resize()
         c = comp.scr.getch()

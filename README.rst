@@ -38,16 +38,29 @@ Usage
 ::
 
    $ comp --help
-   usage: comp [-h] [-j JSON_PLAYLIST]
-   
+   usage: comp [-h] [-c CONFIG] [--vid {ID,auto,no}] [--vo DRIVER]
+               [-f YTDL_FORMAT] [-u URL] [-j JSON_PLAYLIST]
+
    Curses Online Media Player
-   
+
    optional arguments:
      -h, --help            show this help message and exit
-     -j JSON_PLAYLIST, --json-playlist JSON_PLAYLIST
-                           path to playlist in JSON format
-     -y YOUTUBE_PLAYLIST, --youtube-playlist YOUTUBE_PLAYLIST
-                        URL to an playlist on Youtube
+     -c CONFIG, --config CONFIG
+                           location of the configuration file; either the path
+                           to the config or its containing directory
+     --vid {ID,auto,no}    initial video channel. auto selects the default, no
+                           disables video
+     --vo DRIVER           specify the video output backend to be used. See
+                           VIDEO OUTPUT DRIVERS in mpv(1) man page for details
+                           and descriptions of available drivers
+     -f YTDL_FORMAT, --format YTDL_FORMAT
+                           video format/quality to be passed to youtube-dl
+     -u URL, --online-playlist URL
+                           URL to an playlist on Youtube
+     -j JSON_PLAYLIST, --json JSON_PLAYLIST
+                           path to playlist in JSON format. If
+                           --online-playlist is already specified, this will be
+                           used as the default file to save the playlist
 
 Keyboard control
 ^^^^^^^^^^^^^^^^
@@ -59,9 +72,13 @@ Keyboard control
 +--------------+---------------------------------------------+
 | Space        | Select the current track                    |
 +--------------+---------------------------------------------+
+| ``/``, ``?`` | Search forward/backward for a pattern       |
++--------------+---------------------------------------------+
 | ``<``, ``>`` | Go forward/backward in the playlist         |
 +--------------+---------------------------------------------+
 | ``A``        | Toggle mute                                 |
++--------------+---------------------------------------------+
+| ``N``        | Repeat previous search in reverse direction |
 +--------------+---------------------------------------------+
 | ``U``        | Open online playlist                        |
 +--------------+---------------------------------------------+
@@ -69,9 +86,11 @@ Keyboard control
 +--------------+---------------------------------------------+
 | ``W``        | Save the current playlist under JSON format |
 +--------------+---------------------------------------------+
+| ``d``        | Delete current entry                        |
++--------------+---------------------------------------------+
 | ``m``, ``M`` | Cycle through playing modes                 |
 +--------------+---------------------------------------------+
-| ``d``        | Delete current entry                        |
+| ``n``        | Repeat previous search                      |
 +--------------+---------------------------------------------+
 | ``p``        | Toggle pause                                |
 +--------------+---------------------------------------------+
@@ -104,17 +123,19 @@ user-specific one is  ``~/.config/mpv/settings.ini``. Default configurations
 are listed below::
 
    [comp]
-   # Supported 8 modes: play-current, play-all, play-selected, repeat-current,
-   # repeat-all, repeat-selected, shuffle-all and shuffle-selected.
+   # Initial playing mode, which can be one of these 8 modes: play-current,
+   # play-all, play-selected, repeat-current, repeat-all, repeat-selected,
+   # shuffle-all and shuffle-selected.
    play-mode = play-current
-   
+
    [mpv]
-   # Set if video should be download and play, I only know 2 possible values:
-   # auto and no. This can be changed later interactively.
+   # Initial video channel. auto selects the default, no disables video.
    video = auto
-   # Read more on VIDEO OUTPUT DRIVERS section in mpv man page.
+   # Specify the video output backend to be used. See VIDEO OUTPUT DRIVERS in
+   # mpv(1) man page for details and descriptions of available drivers.
    video-output =
-   
+
    [youtube-dl]
-   # Read more on FORMAT SELECTION section in youtube-dl man page.
+   # Video format/quality to be passed to youtube-dl. See FORMAT SELECTION in
+   # youtube-dl(1) man page for more details and descriptions.
    format = best
