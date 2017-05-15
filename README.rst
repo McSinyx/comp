@@ -35,6 +35,9 @@ this moment, I'd suggest you to use ``git`` to get the software::
 Usage
 -----
 
+Command line arguments
+^^^^^^^^^^^^^^^^^^^^^^
+
 ::
 
    $ comp --help
@@ -112,7 +115,7 @@ Keyboard control
 +--------------+---------------------------------------------+
 | Page Down    | Move a single page down                     |
 +--------------+---------------------------------------------+
-| F5           | Reprint the screen content                  |
+| F5           | Redraw the screen content                   |
 +--------------+---------------------------------------------+
 
 Configuration files

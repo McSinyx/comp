@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
  
 # comp - Curses Online Media Player
-# Copyright (C) 2017  Nguyễn Gia Phong
+# Copyright (C) 2017 Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -35,7 +35,7 @@ from threading import Thread
 
 from youtube_dl import YoutubeDL
 
-from mpv import MPV
+from mpv import MPV, MpvFormat
 
 # Init gettext
 textdomain('comp')
@@ -66,7 +66,6 @@ class Comp(object):
     """Meta object for drawing and playing.
 
     Attributes:
-        active (bool): flag show if anything is being played
         entries (list): list of all tracks
         json_file (str): path to save JSON playlist
         mode (str): the mode to pick and play tracks
@@ -85,7 +84,7 @@ class Comp(object):
     """
     def __new__(cls, entries, json_file, mode, mpv_vo, mpv_vid, ytdlf):
         self = super(Comp, cls).__new__(cls)
-        self.active, self.play_backward, self.reading = False, False, False
+        self.play_backward, self.reading = False, False
         self.playing, self.start, self.y = -1, 0, 1
         self.json_file, self.mode, self.vid = json_file, mode, mpv_vid
         self.entries, self.played = entries, []
@@ -104,10 +103,8 @@ class Comp(object):
                                    ' ' if self.vid == 'no' else 'V')
         adds(right.rjust(curses.COLS), curses.color_pair(12))
         try:
-            timestr = '%M:%S' if int(self.mp.duration) < 3600 else '%H:%M:%S'
             left = ' {} / {} {} '.format(
-                strftime(timestr, gmtime(int(self.mp.time_pos))),
-                strftime(timestr, gmtime(int(self.mp.duration))),
+                self.mp.osd.time_pos, self.mp.osd.duration,
                 '|' if self.mp.pause else '>')
             title_len = curses.COLS - len(left + right)
             center = justified(self.mp.media_title, title_len)
@@ -139,7 +136,6 @@ class Comp(object):
     def play(self, force=False):
         """Play the next track."""
         def mpv_play(entry, force):
-            self.active = True
             self.setno('playing')
             entry['playing'] = True
             self.mp.vid = self.vid
@@ -150,7 +146,7 @@ class Comp(object):
             self.print(entry)
             if force: self.mp.pause = False
             self.mp.wait_for_playback()
-            self.active = False
+            self.play()
             entry['playing'] = False
             self.print(entry)
 
@@ -227,11 +223,11 @@ class Comp(object):
 
     def __init__(self, json_file, entries, mode, mpv_vo, mpv_vid, ytdlf):
         if mpv_vo is not None: self.mp['vo'] = mpv_vo
-        self.mp.observe_property('mute', lambda x: self.update_status())
-        self.mp.observe_property('pause', lambda x: self.update_status())
-        self.mp.observe_property('time-pos', lambda x: self.update_status())
-        self.mp.observe_property('duration', lambda x: None if self.active
-                                                       else self.play())
+        def property_handler(name, val): self.update_status()
+        self.mp.observe_property('mute', property_handler)
+        self.mp.observe_property('pause', property_handler)
+        self.mp.observe_property('time-pos', property_handler,
+                                 force_fmt=MpvFormat.INT64)
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -306,11 +302,11 @@ class Comp(object):
 
     def next(self, force=False, backward=False):
         comp.play_backward = backward
-        if self.active:
+        if self.mp.idle_active:
+            self.play(force)
+        else:
             self.seek(100, 'absolute-percent')
             if force: self.mp.pause = False
-        else:
-            self.play(force)
 
     def download(self):
         with YoutubeDL({'quiet': True}) as ytdl:
@@ -482,7 +478,7 @@ with Comp(entries, json_file, mode, vo, vid, ytdlf) as comp:
         elif c == 63:   # ?
             comp.search(backward=True)
         elif c == 65:   # letter A
-            comp.mp._toggle_property('mute')
+            comp.mp.mute ^= True    # hack to toggle bool value
         elif c == 77:   # letter M
             comp.mode = MODES[(MODES.index(comp.mode) - 1) % 8]
             comp.update_status()
@@ -525,7 +521,7 @@ with Comp(entries, json_file, mode, vo, vid, ytdlf) as comp:
                 comp.entries = []
             comp.redraw()
         elif c == 112:  # letter p
-            comp.mp._toggle_property('pause')
+            comp.mp.pause ^= True
         elif c == 109:  # letter m
             comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
