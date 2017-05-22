@@ -4,11 +4,7 @@ comp - Curses Online Media Player
 
 This program is a curses front-end for mpv and youtube-dl.
 
-<<<<<<< HEAD
-.. image:: screenshot.png
-=======
 .. image:: https://ipfs.io/ipfs/QmVhz4F53Sym48kXC7vhDMFsfvJ7iL8gaQ1EgoQADJvuAB
->>>>>>> origin/testing
 
 Installation
 ------------
@@ -78,12 +74,6 @@ Keyboard control
 | Return       | Start playing                               |
 +--------------+---------------------------------------------+
 | Space        | Select the current track                    |
-<<<<<<< HEAD
-+--------------+---------------------------------------------+
-| ``A``        | Toggle mute                                 |
-+--------------+---------------------------------------------+
-| ``O``        | Open JSON playlist                          |
-=======
 +--------------+---------------------------------------------+
 | ``/``, ``?`` | Search forward/backward for a pattern       |
 +--------------+---------------------------------------------+
@@ -92,7 +82,6 @@ Keyboard control
 | ``A``        | Toggle mute                                 |
 +--------------+---------------------------------------------+
 | ``N``        | Repeat previous search in reverse direction |
->>>>>>> origin/testing
 +--------------+---------------------------------------------+
 | ``U``        | Open online playlist                        |
 +--------------+---------------------------------------------+
@@ -100,16 +89,6 @@ Keyboard control
 +--------------+---------------------------------------------+
 | ``W``        | Save the current playlist under JSON format |
 +--------------+---------------------------------------------+
-<<<<<<< HEAD
-| ``m``, ``M`` | Cycle through playing modes                 |
-+--------------+---------------------------------------------+
-| ``a``        | Add an URL to the playlist                  |
-+--------------+---------------------------------------------+
-| ``d``        | Delete current entry                        |
-+--------------+---------------------------------------------+
-| ``p``        | Toggle pause                                |
-+--------------+---------------------------------------------+
-=======
 | ``d``        | Delete current entry                        |
 +--------------+---------------------------------------------+
 | ``m``, ``M`` | Cycle through playing modes                 |
@@ -120,7 +99,6 @@ Keyboard control
 +--------------+---------------------------------------------+
 | ``w``        | Download tracks set by playing mode         |
 +--------------+---------------------------------------------+
->>>>>>> origin/testing
 | Up, ``k``    | Move a single line up                       |
 +--------------+---------------------------------------------+
 | Down, ``j``  | Move a single line down                     |
