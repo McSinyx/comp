@@ -44,6 +44,9 @@ msgstr "ngẫu-nhiên-tất-cả"
 msgid "shuffle-selected"
 msgstr "ngẫu-nhiên-đã-chọn"
 
+msgid "Duration"
+msgstr "Thời lượng"
+
 msgid "URL"
 msgstr "URL"
 
@@ -53,8 +56,14 @@ msgstr "Tiêu đề"
 msgid "Source"
 msgstr "Nguồn"
 
+msgid "Pattern not found"
+msgstr "Không tìm thấy mẫu (pattern)"
+
 msgid "Current size: {}x{}. Minimum size: {}x4."
 msgstr "Kích thước hiện tại: {}x{}. Kích thước tối thiểu: {}x4."
+
+msgid "Open online playlist: "
+msgstr "Mở playlist trực tuyến: "
 
 msgid "Save playlist to [{}]:"
 msgstr "Lưu playlist tại [{}]:"

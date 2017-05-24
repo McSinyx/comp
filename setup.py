@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from distutils.core import setup
+from setuptools import setup
 from os import walk
 from os.path import join
 from sys import prefix
@@ -10,7 +10,7 @@ with open('README.rst') as f:
 
 setup(
     name='comp',
-    version='0.2.2',
+    version='0.2.3',
     description=('Curses Online Media Player'),
     long_description=long_description,
     url='https://github.com/McSinyx/comp',

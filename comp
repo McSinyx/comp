@@ -22,8 +22,6 @@ import re
 from argparse import ArgumentParser
 from collections import deque
 from configparser import ConfigParser
-from curses.ascii import ctrl
-from datetime import datetime
 from functools import reduce
 from gettext import gettext as _, textdomain
 from itertools import cycle
@@ -48,13 +46,6 @@ MODES = ("play-current", "play-all", "play-selected", "repeat-current",
          "repeat-all", "repeat-selected", "shuffle-all", "shuffle-selected")
 MODE_STR_LEN = max(len(_(mode)) for mode in MODES)
 DURATION_COL_LEN = max(len(_("Duration")), 8)
-
-
-def mpv_logger(loglevel, component, message):
-    mpv_log = '{} [{}] {}: {}{}'.format(datetime.isoformat(datetime.now()),
-                                        loglevel, component, message, linesep)
-    with open(MPV_LOG, 'a') as f:
-        f.write(mpv_log)
 
 
 def justified(s, width):
@@ -90,7 +81,7 @@ class Comp(object):
         self.entries, self.played = entries, []
         self.playlist, self.search_res = iter(()), deque()
         self.mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
-                      log_handler=mpv_logger, ytdl=True, ytdl_format=ytdlf)
+                      ytdl=True, ytdl_format=ytdlf)
         self.scr = curses.initscr()
         return self
 
