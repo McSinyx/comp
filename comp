@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
- 
-# comp - Curses Online Media Player
-# Copyright (C) 2017 Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 #
-# This program is free software: you can redistribute it and/or modify
+# comp - Curses Online Media Player
+#
+# comp is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
 # published by the Free Software Foundation, either version 3 of the
 # License, or (at your option) any later version.
 #
-# This program is distributed in the hope that it will be useful,
+# comp program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Affero General Public License for more details.
 #
 # You should have received a copy of the GNU Affero General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with comp.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Copyright (C) 2017  Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 
 import curses
 import json
@@ -34,8 +35,9 @@ from time import gmtime, strftime
 from threading import Thread
 
 from youtube_dl import YoutubeDL
-
 from mpv import MPV, MpvFormat
+
+from omp import extract_info, Omp
 
 # Init gettext
 textdomain('comp')
@@ -43,18 +45,10 @@ textdomain('comp')
 # Global constants
 SYSTEM_CONFIG = '/etc/comp/settings.ini'
 USER_CONFIG = expanduser('~/.config/comp/settings.ini')
-MPV_LOG = expanduser('~/.cache/comp/mpv.log')
 MODES = ("play-current", "play-all", "play-selected", "repeat-current",
          "repeat-all", "repeat-selected", "shuffle-all", "shuffle-selected")
 MODE_STR_LEN = max(len(_(mode)) for mode in MODES)
 DURATION_COL_LEN = max(len(_("Duration")), 8)
-
-
-def mpv_logger(loglevel, component, message):
-    mpv_log = '{} [{}] {}: {}{}'.format(datetime.isoformat(datetime.now()),
-                                        loglevel, component, message, linesep)
-    with open(MPV_LOG, 'a') as f:
-        f.write(mpv_log)
 
 
 def justified(s, width):
@@ -62,7 +56,7 @@ def justified(s, width):
     return s.ljust(width)[:width]
 
 
-class Comp(object):
+class Comp(Omp):
     """Meta object for drawing and playing.
 
     Attributes:
@@ -83,14 +77,14 @@ class Comp(object):
         y (int): the current y-coordinate
     """
     def __new__(cls, entries, json_file, mode, mpv_vo, mpv_vid, ytdlf):
-        self = super(Comp, cls).__new__(cls)
+        self = object.__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing, self.start, self.y = -1, 0, 1
         self.json_file, self.mode, self.vid = json_file, mode, mpv_vid
         self.entries, self.played = entries, []
         self.playlist, self.search_res = iter(()), deque()
         self.mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
-                      log_handler=mpv_logger, ytdl=True, ytdl_format=ytdlf)
+                      ytdl=True, ytdl_format=ytdlf)
         self.scr = curses.initscr()
         return self
 
@@ -221,13 +215,9 @@ class Comp(object):
         self.scr.clrtobot()
         self.update_status()
 
-    def __init__(self, json_file, entries, mode, mpv_vo, mpv_vid, ytdlf):
-        if mpv_vo is not None: self.mp['vo'] = mpv_vo
-        def property_handler(name, val): self.update_status()
-        self.mp.observe_property('mute', property_handler)
-        self.mp.observe_property('pause', property_handler)
-        self.mp.observe_property('time-pos', property_handler,
-                                 force_fmt=MpvFormat.INT64)
+    def __init__(self, entries, json_file, mode, mpv_vo, mpv_vid, ytdlf):
+        Omp.__init__(self, entries, self.update_status, json_file, mode,
+                     mpv_vo, mpv_vid, ytdlf)
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -384,7 +374,7 @@ class Comp(object):
         self.scr.keypad(False)
         curses.echo()
         curses.endwin()
-        self.mp.quit()
+        Omp.__exit__(self, exc_type, exc_value, traceback)
 
 
 parser = ArgumentParser(description=_("Curses Online Media Player"))
@@ -451,8 +441,6 @@ if args.format is not None:
     ytdlf = args.format
 else:
     ytdlf = config.get('youtube-dl', 'format', fallback='best')
-
-makedirs(dirname(MPV_LOG), exist_ok=True)
 
 with Comp(entries, json_file, mode, vo, vid, ytdlf) as comp:
     c = comp.scr.getch()
