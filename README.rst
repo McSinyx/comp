@@ -41,29 +41,28 @@ Command line arguments
 ::
 
    $ comp --help
-   usage: comp [-h] [-c CONFIG] [--vid {ID,auto,no}] [--vo DRIVER]
-               [-f YTDL_FORMAT] [-u URL] [-j JSON_PLAYLIST]
-
+   usage: comp [-h] [-e {json,mpv,youtube-dl}] [-c CONFIG] [--vid VID]
+               [--vo DRIVER] [-f YTDL_FORMAT]
+               file
+   
    Curses Online Media Player
-
+   
+   positional arguments:
+     file                  path or URL to the playlist to be opened
+   
    optional arguments:
      -h, --help            show this help message and exit
+     -e {json,mpv,youtube-dl}, --extractor {json,mpv,youtube-dl}
+                           playlist extractor, default is youtube-dl
      -c CONFIG, --config CONFIG
-                           location of the configuration file; either the path
-                           to the config or its containing directory
-     --vid {ID,auto,no}    initial video channel. auto selects the default, no
+                           path to the configuration file
+     --vid VID             initial video channel. auto selects the default, no
                            disables video
-     --vo DRIVER           specify the video output backend to be used. See
-                           VIDEO OUTPUT DRIVERS in mpv(1) man page for details
-                           and descriptions of available drivers
+     --vo DRIVER           specify the video output backend to be used. See VIDEO
+                           OUTPUT DRIVERS in mpv(1) man page for details and
+                           descriptions of available drivers
      -f YTDL_FORMAT, --format YTDL_FORMAT
                            video format/quality to be passed to youtube-dl
-     -u URL, --online-playlist URL
-                           URL to an playlist on Youtube
-     -j JSON_PLAYLIST, --json JSON_PLAYLIST
-                           path to playlist in JSON format. If
-                           --online-playlist is already specified, this will be
-                           used as the default file to save the playlist
 
 Keyboard control
 ^^^^^^^^^^^^^^^^
@@ -83,8 +82,6 @@ Keyboard control
 +--------------+---------------------------------------------+
 | ``N``        | Repeat previous search in reverse direction |
 +--------------+---------------------------------------------+
-| ``U``        | Open online playlist                        |
-+--------------+---------------------------------------------+
 | ``V``        | Toggle video                                |
 +--------------+---------------------------------------------+
 | ``W``        | Save the current playlist under JSON format |
@@ -96,6 +93,8 @@ Keyboard control
 | ``n``        | Repeat previous search                      |
 +--------------+---------------------------------------------+
 | ``p``        | Toggle pause                                |
++--------------+---------------------------------------------+
+| ``o``        | Open playlist                               |
 +--------------+---------------------------------------------+
 | ``w``        | Download tracks set by playing mode         |
 +--------------+---------------------------------------------+

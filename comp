@@ -23,19 +23,14 @@ import re
 from argparse import ArgumentParser
 from collections import deque
 from configparser import ConfigParser
-from curses.ascii import ctrl
-from datetime import datetime
 from functools import reduce
 from gettext import gettext as _, textdomain
-from itertools import cycle
-from os import linesep, makedirs
-from os.path import abspath, dirname, expanduser, isdir, isfile, join
-from random import choice
-from time import gmtime, strftime
+from os import makedirs
+from os.path import abspath, dirname, expanduser, isfile
 from threading import Thread
 
 from youtube_dl import YoutubeDL
-from mpv import MPV, MpvFormat
+from mpv import MPV
 
 from omp import extract_info, Omp
 
@@ -76,7 +71,7 @@ class Comp(Omp):
         vid (str): flag show if video output is enabled
         y (int): the current y-coordinate
     """
-    def __new__(cls, entries, json_file, mode, mpv_vo, mpv_vid, ytdlf):
+    def __new__(cls, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
         self = object.__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing, self.start, self.y = -1, 0, 1
@@ -112,15 +107,6 @@ class Comp(Omp):
                  y=curses.LINES-1, x=0)
         self.scr.refresh()
 
-    def getlink(self, entry):
-        """Return an URL from the given entry."""
-        if 'webpage_url' not in entry:
-            with YoutubeDL({'quiet': True}) as ytdl:
-                entry.update(ytdl.extract_info(entry['url'], download=False,
-                                               ie_key=entry.get('ie_key')))
-        self.uniform(entry)
-        return entry['webpage_url']
-
     def setno(self, *keys):
         """Set all keys of each entry in entries to False."""
         for entry in self.entries:
@@ -134,7 +120,7 @@ class Comp(Omp):
             entry['playing'] = True
             self.mp.vid = self.vid
             try:
-                self.mp.play(self.getlink(entry))
+                self.mp.play(entry['filename'])
             except:
                 entry['error'] = True
             self.print(entry)
@@ -162,20 +148,6 @@ class Comp(Omp):
         play_thread = Thread(target=mpv_play, args=t, daemon=True)
         play_thread.start()
 
-    def uniform(self, entry):
-        """Standardize data format."""
-        for i in 'error', 'playing', 'selected': entry.setdefault(i, False)
-        entry.setdefault('ie_key', entry.get('extractor'))
-        entry.setdefault('duration', 0)
-        if 'title' not in entry:    # or 'webpage_url' not in entry:
-            with YoutubeDL({'quiet': True}) as ytdl:
-                entry.update(ytdl.extract_info(entry['url'], download=False,
-                                               ie_key=entry.get('ie_key')))
-        for i in entry.copy():
-            if i not in ('duration', 'error', 'playing', 'selected',
-                         'ie_key', 'title', 'url', 'webpage_url'):
-                entry.pop(i)
-
     def _writeln(self, y, title, duration, attr):
         title_len = curses.COLS-DURATION_COL_LEN-3
         title = justified(title, title_len)
@@ -194,16 +166,15 @@ class Comp(Omp):
             y = self.idx(entry) - self.start + 1
         if y < 1 or y > curses.LINES - 3: return
 
-        self.uniform(entry)
+        #self.uniform(entry)
         c = {'error': 1, 'playing': 3, 'selected': 5}
         color = ((8 if entry is self.current() else 0)
             | reduce(int.__xor__, (c.get(i, 0) for i in entry if entry[i])))
-        duration = strftime('%H:%M:%S', gmtime(entry['duration']))
         if color:
-            self._writeln(y, entry['title'], duration,
+            self._writeln(y, entry['title'], entry['duration'],
                           curses.color_pair(color) | curses.A_BOLD)
         else:
-            self._writeln(y, entry['title'], duration,
+            self._writeln(y, entry['title'], entry['duration'],
                           curses.A_NORMAL)
 
     def redraw(self):
@@ -215,9 +186,9 @@ class Comp(Omp):
         self.scr.clrtobot()
         self.update_status()
 
-    def __init__(self, entries, json_file, mode, mpv_vo, mpv_vid, ytdlf):
-        Omp.__init__(self, entries, self.update_status, json_file, mode,
-                     mpv_vo, mpv_vid, ytdlf)
+    def __init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
+        Omp.__init__(self, entries, lambda name, val: self.update_status(),
+                     json_file, mode, mpv_vo, mpv_vid, ytdlf)
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -244,28 +215,6 @@ class Comp(Omp):
         except:
             return {}
 
-    def update_play_list(self, pick):
-        """Update the list of entries to be played."""
-        if pick == 'current':
-            self.play_list = [self.current()]
-        elif pick == 'all':
-            self.play_list = deque(self.entries)
-            self.play_list.rotate(-self.idx())
-        else:
-            self.play_list = [i for i in self.entries if i.get('selected')]
-
-    def update_playlist(self):
-        """Update the playlist to be used by play function."""
-        action, pick = self.mode.split('-')
-        self.update_play_list(pick)
-        if action == 'play':
-            self.playlist = iter(self.play_list)
-        elif action == 'repeat':
-            self.playlist = cycle(self.play_list)
-        else:
-            self.playlist = iter(lambda: choice(self.play_list), None)
-        if self.playing < -1: self.played = self.played[:self.playing+1]
-
     def gets(self, prompt):
         """Print the prompt string at the bottom of the screen then read
         from standard input.
@@ -289,18 +238,6 @@ class Comp(Omp):
             self.mp.seek(amount, reference, precision)
         except:
             pass
-
-    def next(self, force=False, backward=False):
-        comp.play_backward = backward
-        if self.mp.idle_active:
-            self.play(force)
-        else:
-            self.seek(100, 'absolute-percent')
-            if force: self.mp.pause = False
-
-    def download(self):
-        with YoutubeDL({'quiet': True}) as ytdl:
-            ytdl.download([self.getlink(i) for i in self.play_list])
 
     def move(self, delta):
         """Move to the relatively next delta entry."""
@@ -378,10 +315,13 @@ class Comp(Omp):
 
 
 parser = ArgumentParser(description=_("Curses Online Media Player"))
+parser.add_argument('-e', '--extractor', default='youtube-dl',
+                    choices=('json', 'mpv', 'youtube-dl'), required=False,
+                    help=_("playlist extractor, default is youtube-dl"))
+parser.add_argument('file', help=_("path or URL to the playlist to be opened"))
 parser.add_argument('-c', '--config', required=False,
-                    help=_("location of the configuration file; either the\
-                            path to the config or its containing directory"))
-parser.add_argument('--vid', choices=('ID', 'auto', 'no'), required=False,
+                    help=_("path to the configuration file"))
+parser.add_argument('--vid', required=False,
                     help=_("initial video channel. auto selects the default,\
                             no disables video"))
 parser.add_argument('--vo', required=False, metavar='DRIVER',
@@ -390,40 +330,18 @@ parser.add_argument('--vo', required=False, metavar='DRIVER',
                             details and descriptions of available drivers"))
 parser.add_argument('-f', '--format', required=False, metavar='YTDL_FORMAT',
                     help=_("video format/quality to be passed to youtube-dl"))
-parser.add_argument('-u', '--online-playlist', required=False, metavar='URL',
-                    help=_("URL to an playlist on Youtube"))
-parser.add_argument('-j', '--json', required=False, metavar='JSON_PLAYLIST',
-                    help=_("path to playlist in JSON format. If\
-                            --online-playlist is already specified, this will\
-                            be used as the default file to save the playlist"))
 args = parser.parse_args()
+entries = extract_info(args.file, args.extractor)
+json_file = args.file if args.extractor == 'json' else ''
 
 config = ConfigParser()
-if args.config is not None:
-    if isfile(args.config):
-        config_file = args.config
-    else:   #isdir(args.config_location):
-        config_file = join(args.config, 'settings.ini')
+if args.config is not None and isfile(args.config):
+    config_file = args.config
 elif isfile(USER_CONFIG):
     config_file = USER_CONFIG
 else:
     config_file = SYSTEM_CONFIG
 config.read(config_file)
-
-if args.json is not None:
-    json_file = args.json
-else:
-    json_file = ''
-
-if args.online_playlist is not None:
-    with YoutubeDL({'extract_flat': 'in_playlist', 'quiet': True}) as ytdl:
-        info = ytdl.extract_info(args.online_playlist, download=False)
-        entries = info.get('entries', [info])
-else:
-    try:
-        with open(json_file) as f: entries = json.load(f)
-    except FileNotFoundError:
-        entries = []
 
 if args.vid is not None:
     vid = args.vid
@@ -442,7 +360,7 @@ if args.format is not None:
 else:
     ytdlf = config.get('youtube-dl', 'format', fallback='best')
 
-with Comp(entries, json_file, mode, vo, vid, ytdlf) as comp:
+with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
     c = comp.scr.getch()
     while c != 113:     # letter q
         if c == 10:     # curses.KEY_ENTER doesn't work
@@ -472,17 +390,6 @@ with Comp(entries, json_file, mode, vo, vid, ytdlf) as comp:
             comp.update_status()
         elif c == 78:  # letter N
             comp.next_search(backward=True)
-        elif c == 85:   # letter U
-            with YoutubeDL({'extract_flat': True, 'quiet': True}) as ytdl:
-                try:
-                    info = ytdl.extract_info(
-                        comp.gets(_("Open online playlist: ")), download=False)
-                except:
-                    comp.redraw()
-                else:
-                    comp.entries = info.get('entries', [info])
-                    comp.start, comp.y = 0, 1
-                    comp.redraw()
         elif c == 86:   # letter V
             comp.vid = 'auto' if comp.vid == 'no' else 'no'
             comp.mp.vid = comp.vid
@@ -508,17 +415,18 @@ with Comp(entries, json_file, mode, vo, vid, ytdlf) as comp:
             else:
                 comp.entries = []
             comp.redraw()
-        elif c == 112:  # letter p
-            comp.mp.pause ^= True
         elif c == 109:  # letter m
             comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
         elif c == 110:  # letter n
             comp.next_search()
-        elif c == 119:  # letter w
-            comp.update_play_list(comp.mode.split('-')[1])
-            play_thread = Thread(target=comp.download, daemon=True)
-            play_thread.start()
+        elif c == 111:   # letter o
+            extractor = comp.gets(_("Playlist extractor: "))
+            comp.entries = extract_info(comp.gets(_("Open: ")), extractor)
+            comp.start, comp.y = 0, 1
+            comp.redraw()
+        elif c == 112:  # letter p
+            comp.mp.pause ^= True
         elif c in (curses.KEY_UP, 107):     # up arrow or letter k
             comp.move(-1)
         elif c in (curses.KEY_DOWN, 106):   # down arrow or letter j

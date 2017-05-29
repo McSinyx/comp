@@ -11,7 +11,7 @@ with open('README.rst') as f:
 
 setup(
     name='comp',
-    version='0.3.0',
+    version='0.3.1',
     description=('Curses Online Media Player'),
     long_description=long_description,
     url='https://github.com/McSinyx/comp',

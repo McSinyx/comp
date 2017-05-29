@@ -18,7 +18,10 @@
 # Copyright (C) 2017  Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 
 import json
+from collections import deque
+from itertools import cycle
 from os.path import abspath, expanduser, expandvars, isfile
+from random import choice
 from requests import head
 from time import gmtime, sleep, strftime
 
@@ -35,10 +38,9 @@ def extract_info(filename, extractor='youtube-dl'):
     """Return list of entries extracted from a path or URL using
     specified extractor.
 
-    The extractor could be either 'json', 'mpv' or 'youtube-dl'. If is
-    not one of them or not specified, youtube-dl will be used.
+    The extractor could be either 'json', 'mpv' or 'youtube-dl'. If it
+    is not one of them or not specified, youtube-dl will be used.
     """
-
     def json_extract_info(filename):
         try:
             with open(filename) as f: raw_info = json.load(f)
@@ -119,7 +121,7 @@ class Omp(object):
         search_res (iterator):  title-searched results
         vid (str): flag show if video output is enabled
     """
-    def __new__(cls, entries, handler, json_file, mode, mpv_vo, mpv_vid, ytdlf):
+    def __new__(cls, entries, handler, json_file, mode, mpv_vid, mpv_vo, ytdlf):
         self = super(Comp, cls).__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing = -1
@@ -131,7 +133,7 @@ class Omp(object):
         return self
 
     def __init__(self, entries, handler, json_file, mode,
-                 mpv_vo, mpv_vid, ytdlf):
+                 mpv_vid, mpv_vo, ytdlf):
         if mpv_vo is not None: self.mp['vo'] = mpv_vo
         self.mp.observe_property('mute', handler)
         self.mp.observe_property('pause', handler)
@@ -139,41 +141,6 @@ class Omp(object):
                                  force_fmt=MpvFormat.INT64)
 
     def __enter__(self): return self
-
-    def play(self, force=False):
-        """Play the next track."""
-        def mpv_play(entry, force):
-            self.setno('playing')
-            entry['playing'] = True
-            self.mp.vid = self.vid
-            try:
-                self.mp.play(self.getlink(entry))
-            except:
-                entry['error'] = True
-            self.print(entry)
-            if force: self.mp.pause = False
-            self.mp.wait_for_playback()
-            self.play()
-            entry['playing'] = False
-            self.print(entry)
-
-        if self.play_backward and -self.playing < len(self.played):
-            self.playing -= 1
-            t = self.played[self.playing], force
-        elif self.playing < -1:
-            self.playing += 1
-            t = self.played[self.playing], force
-        else:
-            try:
-                self.played.append(next(self.playlist))
-            except StopIteration:
-                return
-            else:
-                t = self.played[-1], force
-
-        self.play_backward = False
-        play_thread = Thread(target=mpv_play, args=t, daemon=True)
-        play_thread.start()
 
     def update_play_list(self, pick):
         """Update the list of entries to be played."""
@@ -214,10 +181,6 @@ class Omp(object):
             self.seek(100, 'absolute-percent')
             if force: self.mp.pause = False
 
-    def download(self):
-        with YoutubeDL({'quiet': True}) as ytdl:
-            ytdl.download([self.getlink(i) for i in self.play_list])
-
     def search(self, backward=False):
         """Prompt then search for a pattern."""
         p = re.compile(self.gets('/'), re.IGNORECASE)
@@ -241,11 +204,3 @@ class Omp(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.mp.quit()
-
-
-if __name__ == '__main__':
-    print(extract_info('gplv3.ogg', 'mpv'))
-    print(extract_info('http://www.youtube.com/watch?v=VmOiDst8Veg', 'mpv'))
-    print(extract_info('http://www.youtube.com/watch?v=VmOiDst8Veg', 'youtube-dl'))
-    print(extract_info('https://www.youtube.com/watch?list=PLFgquLnL59akuvsCHG83KKO2dpMA8uJQl', 'youtube-dl'))
-    print(extract_info('foo.json', 'json'))
