@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-#
-# comp - Curses Online Media Player
+# comp - Curses Omni Media Player
 #
 # comp is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -24,18 +23,20 @@ from argparse import ArgumentParser
 from collections import deque
 from configparser import ConfigParser
 from functools import reduce
-from gettext import gettext as _, textdomain
+from gettext import bindtextdomain, gettext as _, textdomain
 from os import makedirs
 from os.path import abspath, dirname, expanduser, isfile
 from threading import Thread
 
-from youtube_dl import YoutubeDL
 from mpv import MPV
+from pkg_resources import resource_filename
+from youtube_dl import YoutubeDL
 
 from omp import extract_info, Omp
 
 # Init gettext
-textdomain('comp')
+bindtextdomain('omp', resource_filename('omp', 'locale'))
+textdomain('omp')
 
 # Global constants
 SYSTEM_CONFIG = '/etc/comp/settings.ini'
@@ -92,6 +93,8 @@ class Comp(Omp):
                                    ' ' if self.vid == 'no' else 'V')
         adds(right.rjust(curses.COLS), curses.color_pair(12))
         try:
+            self.played[self.playing]['duration'] = self.mp.osd.duration
+            self.print(self.played[self.playing])
             left = ' {} / {} {} '.format(
                 self.mp.osd.time_pos, self.mp.osd.duration,
                 '|' if self.mp.pause else '>')
@@ -151,7 +154,7 @@ class Comp(Omp):
     def _writeln(self, y, title, duration, attr):
         title_len = curses.COLS-DURATION_COL_LEN-3
         title = justified(title, title_len)
-        duration = duration.ljust(DURATION_COL_LEN)
+        duration = (duration or '00:00:00').ljust(DURATION_COL_LEN)
         self.scr.addstr(y, 0, ' {} {} '.format(title, duration), attr)
         self.scr.refresh()
 
@@ -188,7 +191,7 @@ class Comp(Omp):
 
     def __init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
         Omp.__init__(self, entries, lambda name, val: self.update_status(),
-                     json_file, mode, mpv_vo, mpv_vid, ytdlf)
+                     json_file, mode, mpv_vid, mpv_vo, ytdlf)
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -319,7 +322,7 @@ parser.add_argument('-e', '--extractor', default='youtube-dl',
                     choices=('json', 'mpv', 'youtube-dl'), required=False,
                     help=_("playlist extractor, default is youtube-dl"))
 parser.add_argument('file', help=_("path or URL to the playlist to be opened"))
-parser.add_argument('-c', '--config', required=False,
+parser.add_argument('-c', '--config', default=USER_CONFIG, required=False,
                     help=_("path to the configuration file"))
 parser.add_argument('--vid', required=False,
                     help=_("initial video channel. auto selects the default,\
@@ -333,32 +336,12 @@ parser.add_argument('-f', '--format', required=False, metavar='YTDL_FORMAT',
 args = parser.parse_args()
 entries = extract_info(args.file, args.extractor)
 json_file = args.file if args.extractor == 'json' else ''
-
 config = ConfigParser()
-if args.config is not None and isfile(args.config):
-    config_file = args.config
-elif isfile(USER_CONFIG):
-    config_file = USER_CONFIG
-else:
-    config_file = SYSTEM_CONFIG
-config.read(config_file)
-
-if args.vid is not None:
-    vid = args.vid
-else:
-    vid = config.get('mpv', 'video', fallback='auto')
-
-if args.vo is not None:
-    vo = args.vo
-else:
-    vo = config.get('mpv', 'video-output', fallback=None)
-
+config.read(args.config)
+vid = args.vid or config.get('mpv', 'video', fallback='auto')
+vo = args.vo or config.get('mpv', 'video-output', fallback=None)
 mode = config.get('comp', 'play-mode', fallback='play-current')
-
-if args.format is not None:
-    ytdlf = args.format
-else:
-    ytdlf = config.get('youtube-dl', 'format', fallback='best')
+ytdlf = args.format or config.get('youtube-dl', 'format', fallback='best')
 
 with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
     c = comp.scr.getch()
@@ -399,7 +382,9 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             if s: comp.json_file = s
             try:
                 makedirs(dirname(abspath(comp.json_file)), exist_ok=True)
-                with open(comp.json_file, 'w') as f: json.dump(comp.entries, f)
+                with open(comp.json_file, 'w') as f:
+                    json.dump(comp.entries, f, ensure_ascii=False,
+                              indent=2, sort_keys=True)
             except:
                 errmsg = _("'{}': Can't open file for writing").format(
                     comp.json_file)
@@ -407,14 +392,25 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             else:
                 comp.update_status(_("'{}' written").format(comp.json_file))
         elif c == 100:  # letter d
-            i = comp.idx()
-            if i + 1 < len(entries):
-                comp.entries.pop(i)
-            elif len(entries) > 1:
-                comp.entries.pop(i)
-            else:
-                comp.entries = []
+            comp.entries.pop(comp.idx())
+            if 1 < len(comp.entries) - curses.LINES + 4 == comp.start:
+                comp.start -= 1
+            elif comp.idx() == len(comp.entries):
+                comp.y -= 1
             comp.redraw()
+        elif c == 105:   # letter i
+            extractor = comp.gets(_("Playlist extractor: "))
+            filename = comp.gets(_("Insert: "))
+            entries = extract_info(filename, extractor)
+            if entries is None:
+                comp.update_status(
+                    _("'{}': Can't extract playlist").format(filename))
+            else:
+                bottom = comp.entries[comp.idx():]
+                comp.entries = comp.entries[:comp.idx()]
+                comp.entries.extend(entries)
+                comp.entries.extend(bottom)
+                comp.redraw()
         elif c == 109:  # letter m
             comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
@@ -422,9 +418,14 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             comp.next_search()
         elif c == 111:   # letter o
             extractor = comp.gets(_("Playlist extractor: "))
-            comp.entries = extract_info(comp.gets(_("Open: ")), extractor)
-            comp.start, comp.y = 0, 1
-            comp.redraw()
+            filename = comp.gets(_("Open: "))
+            entries = extract_info(filename, extractor)
+            if entries is None:
+                comp.update_status(
+                    _("'{}': Can't extract playlist").format(filename))
+            else:
+                comp.entries, comp.start, comp.y = entries, 0, 1
+                comp.redraw()
         elif c == 112:  # letter p
             comp.mp.pause ^= True
         elif c in (curses.KEY_UP, 107):     # up arrow or letter k

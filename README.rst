@@ -1,36 +1,39 @@
-=================================
-comp - Curses Online Media Player
-=================================
+===============================
+comp - Curses Omni Media Player
+===============================
 
 This program is a curses front-end for mpv and youtube-dl.
 
-.. image:: https://ipfs.io/ipfs/QmVhz4F53Sym48kXC7vhDMFsfvJ7iL8gaQ1EgoQADJvuAB
+.. image:: doc/screenshot.png
 
 Installation
 ------------
 
-Dependencies
-^^^^^^^^^^^^
+comp requires Python 3.5+ with ``curses`` module (only available on Unix-like
+OSes such as GNU/Linux and the BSDs) and ``libmpv``. It also depends on
+``python-mpv`` and ``youtube-dl`` but the setup program will automatically 
+install them if they are missing.
 
-This program currently only runs on Python 3.5+ on operating systems that the
-``curses`` module is supported (i.e. Unix-like OS, e.g. GNU/Linux, macOS and
-the BSDs).
+Using pip
+^^^^^^^^^
 
-It also depends on ``youtube-dl`` and ``libmpv``. Both of those should be
-available in your operating system's repository, although it's more
-recommended to install ``youtube-dl`` using ``pip`` (currently most distros
-still use Python 2 as default so the command is something like ``pip3 install
-youtube-dl``).
+Python 2 is still the default on most distributions so the command would be
+``pip3 install comp``. You can use the ``--user`` flag to avoid system-wide
+installation.
 
-Installing comp
-^^^^^^^^^^^^^^^
+Using setup.py
+^^^^^^^^^^^^^^
 
-I will try to upload the program to PyPI when it's more completed but as of
-this moment, I'd suggest you to use ``git`` to get the software::
+To install the latest version or test the development branch (called
+``bachelor``, in contrast to ``master``), you'll need to do it manually::
 
    git clone https://github.com/McSinyx/comp.git
    cd comp
-   sudo ./setup.py install
+   git checkout bachelor # usually master is synced with the PyPI repo
+   sudo ./setup.py install -e .
+
+Note ``setup.py`` uses ``setuptools`` which is a third-party module and can be
+install using ``pip3``.
 
 Usage
 -----
@@ -88,6 +91,8 @@ Keyboard control
 +--------------+---------------------------------------------+
 | ``d``        | Delete current entry                        |
 +--------------+---------------------------------------------+
+| ``i``        | Insert playlist                             |
++--------------+---------------------------------------------+
 | ``m``, ``M`` | Cycle through playing modes                 |
 +--------------+---------------------------------------------+
 | ``n``        | Repeat previous search                      |
@@ -120,8 +125,8 @@ Keyboard control
 Configuration files
 -------------------
 
-The system-wide configuration file is ``/etc/comp/settings.ini``, the
-user-specific one is  ``~/.config/mpv/settings.ini``. Default configurations
+If not specified by the ``--config``, (user-specific) configuration file is
+``~/.config/mpv/settings.ini``. Default configurations
 are listed below::
 
    [comp]

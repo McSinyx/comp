@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-from os import walk
+from os import listdir
 from os.path import join
-from sys import prefix
 
 from setuptools import setup
 
@@ -11,8 +10,8 @@ with open('README.rst') as f:
 
 setup(
     name='comp',
-    version='0.3.1',
-    description=('Curses Online Media Player'),
+    version='0.3.2',
+    description=('Curses Omni Media Player'),
     long_description=long_description,
     url='https://github.com/McSinyx/comp',
     author='Nguyễn Gia Phong',
@@ -29,16 +28,10 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Topic :: Multimedia :: Sound/Audio :: Players',
-        'Topic :: Multimedia :: Video :: Display'
-    ],
+        'Topic :: Multimedia :: Video :: Display'],
     keywords='youtube-dl mpv-wrapper curses console-application multimedia',
+    packages=['omp'],
     install_requires=['python-mpv', 'youtube-dl'],
-    data_files=[
-        *((join(prefix, 'share', i[0]), [join(i[0], 'comp.mo')])
-          for i in walk('locale') if i[2]),
-        ('/etc/comp', ['settings.ini'])
-    ],
-    py_modules=['omp'],
+    package_data={'omp': ['locale/*/LC_MESSAGES/omp.mo']},
     scripts=['comp'],
-    platforms=['POSIX']
-)
+    platforms=['POSIX'])
