@@ -30,7 +30,7 @@ To install the latest version or test the development branch (called
    git clone https://github.com/McSinyx/comp.git
    cd comp
    git checkout bachelor # usually master is synced with the PyPI repo
-   sudo ./setup.py install -e .
+   ./setup.py install -e .
 
 Note ``setup.py`` uses ``setuptools`` which is a third-party module and can be
 install using ``pip3``.

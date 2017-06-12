@@ -84,30 +84,34 @@ class Comp(Omp):
         self.scr = curses.initscr()
         return self
 
+    def adds(self, s, y, x=0, X=-1, attr=curses.A_NORMAL, lpad=1):
+        """Paint the string s, added lpad spaces to the left, from
+        (y, x) to (y, X) with attributes attr, overwriting anything
+        previously on the display.
+        """
+        if self.reading: return
+        y %= curses.LINES
+        x %= curses.COLS
+        length = X % curses.COLS - x + (y != curses.LINES - 1)
+        self.scr.addstr(y, x, (' '*lpad + s).ljust(length)[:length], attr)
+
     def update_status(self, message='', msgattr=curses.A_NORMAL):
         """Update the status lines at the bottom of the screen."""
-        def adds(s, a, y=curses.LINES-2, x=0):
-            if not self.reading: self.scr.addstr(y, x, s, a)
+        def add_status_str(s, x=0, X=-1, attr=curses.color_pair(12), lpad=1):
+            self.adds(s, curses.LINES - 2, x=x, X=X, attr=attr, lpad=lpad)
 
-        right = ' {} {}{} '.format(_(self.mode), ' ' if self.mp.mute else 'A',
-                                   ' ' if self.vid == 'no' else 'V')
-        adds(right.rjust(curses.COLS), curses.color_pair(12))
-        try:
+        if self.mp.osd.duration is not None:
             self.played[self.playing]['duration'] = self.mp.osd.duration
-            self.print(self.played[self.playing])
-            left = ' {} / {} {} '.format(
-                self.mp.osd.time_pos, self.mp.osd.duration,
-                '|' if self.mp.pause else '>')
-            title_len = curses.COLS - len(left + right)
-            center = justified(self.mp.media_title, title_len)
-        except:
-            pass
-        else:
-            adds(left, curses.color_pair(12))
-            adds(center, curses.color_pair(12) | curses.A_BOLD, x=len(left))
-        if message:
-            adds(justified(message, curses.COLS - 1), msgattr,
-                 y=curses.LINES-1, x=0)
+        add_status_str(self.mp.osd.time_pos or '00:00:00', X=8)
+        add_status_str('/', x=9, X=10)
+        add_status_str(self.mp.osd.duration or '00:00:00', x=11, X=19)
+        add_status_str('|' if self.mp.pause else '>', x=20, X=21)
+        add_status_str((self.mp.media_title or b'').decode(), x=22,
+                       attr=curses.color_pair(12)|curses.A_BOLD)
+        add_status_str(_(self.mode), x=-5-len(_(self.mode)))
+        if not self.mp.mute: add_status_str('A', x=-4, X=-3)
+        if self.vid != 'no': add_status_str('V', x=-2, lpad=0)
+        if message: self.adds(message, curses.LINES-1, attr=msgattr, lpad=0)
         self.scr.refresh()
 
     def setno(self, *keys):
@@ -152,10 +156,9 @@ class Comp(Omp):
         play_thread.start()
 
     def _writeln(self, y, title, duration, attr):
-        title_len = curses.COLS-DURATION_COL_LEN-3
-        title = justified(title, title_len)
-        duration = (duration or '00:00:00').ljust(DURATION_COL_LEN)
-        self.scr.addstr(y, 0, ' {} {} '.format(title, duration), attr)
+        title_len = curses.COLS - DURATION_COL_LEN - 3
+        self.adds(title, y, attr=attr)
+        self.adds(duration, y, x=title_len+1, attr=attr)
         self.scr.refresh()
 
     def print(self, entry=None, y=None):
@@ -169,7 +172,6 @@ class Comp(Omp):
             y = self.idx(entry) - self.start + 1
         if y < 1 or y > curses.LINES - 3: return
 
-        #self.uniform(entry)
         c = {'error': 1, 'playing': 3, 'selected': 5}
         color = ((8 if entry is self.current() else 0)
             | reduce(int.__xor__, (c.get(i, 0) for i in entry if entry[i])))
@@ -222,8 +224,7 @@ class Comp(Omp):
         """Print the prompt string at the bottom of the screen then read
         from standard input.
         """
-        self.scr.addstr(curses.LINES - 1, 0,
-                        justified(prompt, curses.COLS - 1))
+        self.adds(prompt, curses.LINES - 1, lpad=0)
         self.reading = True
         curses.curs_set(True)
         curses.echo()
@@ -290,17 +291,19 @@ class Comp(Omp):
 
     def resize(self):
         curses.update_lines_cols()
+        self.scr.clear()
         l = curses.LINES - 3
-        if curses.COLS < MODE_STR_LEN + 42 or l < 1:
+        if curses.COLS < MODE_STR_LEN + 42 or l < 1:    # too small
             sizeerr = _("Current size: {}x{}. Minimum size: {}x4.").format(
                 curses.COLS, curses.LINES, MODE_STR_LEN + 42)
             self.scr.addstr(0, 0, sizeerr[:curses.LINES*curses.COLS-1])
-        elif self.y > l:
+            self.scr.refresh()
+        elif self.y > l:    # shorter than the current entry
             self.start += self.y - l
             self.y = l
             self.redraw()
-        elif 0 < self.start > len(self.entries) - l:
-            idx, self.start = self.idx(), min(0, len(entries) - l)
+        elif 0 < self.start > len(self.entries) - l:    # longer than the list
+            idx, self.start = self.idx(), min(0, len(self.entries) - l)
             self.y = idx - self.start + 1
             if self.y > l:
                 self.start += self.y - l
