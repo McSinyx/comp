@@ -136,6 +136,14 @@
     "title": "The Weeknd - I Feel It Coming ft. Daft Punk"
   },
   {
+    "duration": "00:02:29",
+    "error": false,
+    "filename": "http://www.html5videoplayer.net/videos/toystory.mp4",
+    "playing": false,
+    "selected": false,
+    "title": "toystory.mp4"
+  },
+  {
     "duration": "00:00:00",
     "error": false,
     "filename": "https://youtu.be/6ImFf__U6io",
