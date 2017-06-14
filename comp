@@ -320,7 +320,7 @@ class Comp(Omp):
         Omp.__exit__(self, exc_type, exc_value, traceback)
 
 
-parser = ArgumentParser(description=_("Curses Online Media Player"))
+parser = ArgumentParser(description=_("Curses Omni Media Player"))
 parser.add_argument('-e', '--extractor', default='youtube-dl',
                     choices=('json', 'mpv', 'youtube-dl'), required=False,
                     help=_("playlist extractor, default is youtube-dl"))

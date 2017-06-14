@@ -17,8 +17,8 @@ msgstr ""
 "Plural-Forms: nplurals=1; plural=0;\n"
 "Language: vi_VN\n"
 
-msgid "Curses Online Media Player"
-msgstr "Phần mềm chơi đa phương tiện trực tuyến sử dụng curses"
+msgid "Curses Omni Media Player"
+msgstr "Phần mềm phát đa phương tiện sử dụng thư viện curses"
 
 msgid "play-current"
 msgstr "chơi-một"
@@ -44,20 +44,14 @@ msgstr "ngẫu-nhiên-tất-cả"
 msgid "shuffle-selected"
 msgstr "ngẫu-nhiên-đã-chọn"
 
-msgid "URL"
-msgstr "URL"
-
 msgid "Title"
 msgstr "Tiêu đề"
-
-msgid "Source"
-msgstr "Nguồn"
 
 msgid "Current size: {}x{}. Minimum size: {}x4."
 msgstr "Kích thước hiện tại: {}x{}. Kích thước tối thiểu: {}x4."
 
-msgid "Save playlist to [{}]:"
-msgstr "Lưu playlist tại [{}]:"
+msgid "Save playlist to [{}]: "
+msgstr "Lưu danh sách phát tại [{}]: "
 
 msgid "'{}': Can't open file for writing"
 msgstr "'{}': Không mở được tệp để ghi"
@@ -65,8 +59,20 @@ msgstr "'{}': Không mở được tệp để ghi"
 msgid "'{}' written"
 msgstr "'{}' đã ghi"
 
-msgid "path to playlist in JSON format"
-msgstr "đường dẫn đến playlist ở định dạng JSON"
+msgid "Duration"
+msgstr "Thời lượng"
 
-msgid "URL to an playlist on Youtube"
-msgstr "URL của playlist trên Youtube"
+msgid "Pattern not found"
+msgstr "Không tìm thấy mẫu (pattern)"
+
+msgid "'{}': Can't extract playlist"
+msgstr "'{}': Không mở được danh sách phát"
+
+msgid "Playlist extractor: "
+msgstr "Công cụ mở danh sách phát: "
+
+msgid "Insert: "
+msgstr "Chèn: "
+
+msgid "Open: "
+msgstr "Mở: "
