@@ -19,6 +19,7 @@
 import json
 from os.path import abspath, expanduser, expandvars, isfile
 from time import gmtime, sleep, strftime
+from urllib.request import urlretrieve
 
 from youtube_dl import YoutubeDL
 from mpv import MPV
@@ -34,6 +35,8 @@ def json_extract_info(filename):
     error occur during the extraction, return None.
     """
     try:
+        if not isfile(filename):
+            filename = urlretrieve(filename)[0]
         with open(filename) as f: raw_info, info = json.load(f), []
         for i in raw_info:
             e = DEFAULT_ENTRY.copy()
@@ -75,8 +78,8 @@ def ytdl_extract_info(filename):
         for i in info:
             if 'webpage_url' in i:
                 i['filename'] = i['webpage_url']
-            elif (i['ie_key'] == 'Youtube'
-                  or i['extractor'] == 'youtube'):
+            elif (i.get('ie_key') == 'Youtube'
+                  or i.get('extractor') == 'youtube'):
                 i['filename'] = 'https://youtu.be/' + i['id']
             else:
                 i['filename'] = i['url']
