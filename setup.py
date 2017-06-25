@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-from os import listdir
-from os.path import join
-
 from setuptools import setup
 
 with open('README.rst') as f:
@@ -10,7 +7,7 @@ with open('README.rst') as f:
 
 setup(
     name='comp',
-    version='0.3.5',
+    version='0.3.6',
     description=('Curses Omni Media Player'),
     long_description=long_description,
     url='https://github.com/McSinyx/comp',
@@ -32,6 +29,8 @@ setup(
     keywords='youtube-dl mpv-wrapper curses console-application multimedia',
     packages=['omp'],
     install_requires=['python-mpv', 'youtube-dl'],
+    python_requires='>=3.5',
     package_data={'omp': ['locale/*/LC_MESSAGES/omp.mo']},
+    data_files=[('share/man/man1', ['doc/comp.1'])],
     scripts=['comp'],
     platforms=['POSIX'])
