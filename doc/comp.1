@@ -1,0 +1,142 @@
+.\" Process this file with
+.\" groff -man -Tutf8 comp.1
+.\"
+.TH COMP 1 2017-06-17 comp
+.SH NAME
+comp \- Curses Omni Media Player
+.SH SYNOPSIS
+\fBcomp\fR [\fB-h\fR] [\fB-e\fR {json,mpv,youtube-dl}] [\fB-c \fICONFIG\fR]
+[\fB--vid \fIVID\fR] [\fB--vo \fIDRIVER\fR] [\fB-f \fIYTDL_FORMAT\fR]
+\fIplaylist\fR
+.SH DESCRIPTION
+\fBcomp\fR is a 
+.BR mpv (1)
+front-end using curses. It has basic media player functions and can to extract
+playlists from multiple sources such as media sites supported by
+.BR youtube-dl (1),
+local and direct URL to video/audio and its own JSON playlist format.
+.SH OPTIONS
+.SS Positional arguments
+.TP
+.B playlist
+path or URL to the playlist
+.SS Optional arguments
+.TP 
+.B -h, --help
+show this help message and exit
+.TP
+.B -e \fR{json,mpv,youtube-dl}, \fB--extractor \fR{json,mpv,youtube-dl}
+playlist extractor, default is \fIyoutube-dl
+.TP
+.B -c \fICONFIG, \fB--config \fICONFIG
+path to the configuration file
+.TP 
+.B --vid \fIVID
+initial video channel. \fIauto\fR selects the default, \fIno\fR disables video
+.TP
+.B --vo \fIDRIVER
+specify the video output backend to be used. See 
+.I VIDEO OUTPUT DRIVERS
+in
+.BR mpv (1)
+for details and descriptions of available drivers
+.TP 
+.B -f \fIYTDL_FORMAT\fR, \fB--format \fIYTDL_FORMAT
+video format/quality to be passed to youtube-dl
+.SH KEYBOARD CONTROL
+.TP
+.B Return
+start playing
+.TP
+.B Space
+select the current track
+.TP
+.B /, ?
+search forward/backward for a pattern
+.TP
+.B <, >
+go backward/forward in the playlist
+.TP
+.B A
+toggle mute
+.TP
+.B N
+repeat previous search in reverse direction
+.TP
+.B V
+toggle video
+.TP
+.B W
+save the current playlist under JSON format
+.TP
+.B d
+delete current entry
+.TP
+.B i
+insert playlist
+.TP
+.B m, M
+cycle forward/backward through playing modes
+.TP
+.B n
+repeat previous search
+.TP
+.B p
+toggle pause
+.TP
+.B o
+open playlist
+.TP
+.B w
+download tracks set by playing mode
+.TP
+.B Up, k
+move a single line up
+.TP
+.B Down, j
+move a single line down
+.TP
+.B Left, h
+seek backward 5 seconds
+.TP
+.B Right, l
+seek forward 5 seconds
+.TP
+.B Home
+move to the beginning of the playlist
+.TP
+.B End
+move to the end of the playlist
+.TP
+.B Page Up
+move a single page up
+.TP
+.B Page Down
+move a single page down
+.TP
+.B F5
+redraw the screen content
+.SH FILES
+.TP
+.I ~/.config/comp/settings.ini
+per user configuration file
+.SH EXAMPLES
+.nf R
+Open a JSON playlist:
+.ft B
+	comp -e json test/playlist.json
+
+.ft R
+Open a Youtube playlist with video height lower than 720:
+.ft B
+	comp -f [height<720] https://www.youtube.com/list=PLnk14Iku8QM7R3ARnrj1TwYSZleF-i7jT
+.SH BUGS
+.PP
+Media durations are not extracted from online playlists as youtube-dl
+extract_flat option is used. This is rather a feature to save up bandwidth than
+a bug because a track's duration is updated when it's played.
+.SH AUTHOR
+Written by Nguyễn Gia Phong.
+.SH "SEE ALSO"
+.BR mpv (1),
+.BR youtube-dl (1)

@@ -18,6 +18,7 @@
 
 import json
 from collections import deque
+from gettext import bindtextdomain, gettext as _, textdomain
 from itertools import cycle
 from os.path import abspath, expanduser, expandvars, isfile
 from random import choice
@@ -25,12 +26,14 @@ from time import gmtime, sleep, strftime
 from urllib import request
 
 from youtube_dl import YoutubeDL
+from pkg_resources import resource_filename
 from mpv import MPV, MpvFormat
 
-DEFAULT_ENTRY = {'filename': '', 'title': '', 'duration': '00:00:00',
-                 'error': False, 'playing': False, 'selected': False}
-YTDL_OPTS = {'quiet': True, 'default_search': 'ytsearch',
-             'extract_flat': 'in_playlist'}
+from .ie import extract_info
+
+# Init gettext
+bindtextdomain('omp', resource_filename('omp', 'locale'))
+textdomain('omp')
 
 
 class Omp(object):
@@ -48,8 +51,14 @@ class Omp(object):
         playlist (iterator): iterator of tracks according to mode
         search_res (iterator):  title-searched results
         vid (str): flag show if video output is enabled
+
+    I/O handlers (defined by front-end):
+        print_msg(message, error=False): print a message
+        property_handler(name, val): called when a mpv property updated
+        read_input(prompt): prompt for user input
+        refresh(): update interface content
     """
-    def __new__(cls, entries, handler, json_file, mode, mpv_vid, mpv_vo, ytdlf):
+    def __new__(cls, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
         self = super(Comp, cls).__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing = -1
@@ -60,13 +69,12 @@ class Omp(object):
                       ytdl=True, ytdl_format=ytdlf)
         return self
 
-    def __init__(self, entries, handler, json_file, mode,
-                 mpv_vid, mpv_vo, ytdlf):
+    def __init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
         if mpv_vo is not None: self.mp['vo'] = mpv_vo
-        self.mp.observe_property('mute', handler)
-        self.mp.observe_property('pause', handler)
-        self.mp.observe_property('time-pos', handler,
-                                 force_fmt=MpvFormat.INT64)
+        @self.mp.property_observer('mute')
+        @self.mp.property_observer('pause')
+        @self.mp.property_observer('time-pos', force_fmt=MpvFormat.INT64)
+        def observer(name, value): self.property_handler(name, value)
 
     def __enter__(self): return self
 
@@ -129,6 +137,22 @@ class Omp(object):
             self.move(self.idx(self.search_res[0]) - self.idx())
         else:
             self.update_status(_("Pattern not found"), curses.color_pair(1))
+
+    def dump_json(self):
+        s = self.read_input(
+            _("Save playlist to [{}]: ").format(self.json_file))
+        if s: self.json_file = abspath(expanduser(expandvars(s)))
+        try:
+            makedirs(dirname(comp.json_file), exist_ok=True)
+            with open(self.json_file, 'w') as f:
+                json.dump(self.entries, f, ensure_ascii=False,
+                          indent=2, sort_keys=True)
+        except:
+            errmsg = _("'{}': Can't open file for writing").format(
+                self.json_file)
+            self.print_msg(errmsg, error=True)
+        else:
+            self.print_msg(_("'{}' written").format(comp.json_file))
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.mp.quit()

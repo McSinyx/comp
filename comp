@@ -25,7 +25,7 @@ from configparser import ConfigParser
 from functools import reduce
 from gettext import bindtextdomain, gettext as _, textdomain
 from os import makedirs
-from os.path import abspath, dirname, expanduser
+from os.path import abspath, dirname, expanduser, expandvars
 from threading import Thread
 
 from mpv import MPV
@@ -111,7 +111,11 @@ class Comp(Omp):
         add_status_str(_(self.mode), x=-5-len(_(self.mode)))
         if not self.mp.mute: add_status_str('A', x=-4, X=-3)
         if self.vid != 'no': add_status_str('V', x=-2, lpad=0)
-        if message: self.adds(message, curses.LINES-1, attr=msgattr, lpad=0)
+        self.scr.refresh()
+
+    def print_msg(self, message, error=False):
+        attributes = curses.color_pair(1) if error else curses.A_NORMAL
+        self.adds(message, curses.LINES-1, attr=attributes, lpad=0)
         self.scr.refresh()
 
     def setno(self, *keys):
@@ -182,7 +186,7 @@ class Comp(Omp):
             self._writeln(y, entry['title'], entry['duration'],
                           curses.A_NORMAL)
 
-    def redraw(self):
+    def refresh(self):
         """Redraw the whole screen."""
         self._writeln(0, _("Title"), _("Duration"),
                       curses.color_pair(10) | curses.A_BOLD)
@@ -191,9 +195,10 @@ class Comp(Omp):
         self.scr.clrtobot()
         self.update_status()
 
+    def property_handler(self, name, val): self.update_status()
+
     def __init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
-        Omp.__init__(self, entries, lambda name, val: self.update_status(),
-                     json_file, mode, mpv_vid, mpv_vo, ytdlf)
+        Omp.__init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf)
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -203,7 +208,7 @@ class Comp(Omp):
         for i in range(1, 8): curses.init_pair(i, i, -1)
         curses.init_pair(8, -1, 7)
         for i in range(1, 7): curses.init_pair(i + 8, -1, i)
-        self.redraw()
+        self.refresh()
 
     def __enter__(self): return self
 
@@ -220,7 +225,7 @@ class Comp(Omp):
         except:
             return {}
 
-    def gets(self, prompt):
+    def read_input(self, prompt):
         """Print the prompt string at the bottom of the screen then read
         from standard input.
         """
@@ -266,11 +271,11 @@ class Comp(Omp):
             self.print(prev_entry)
             self.print()
         else:
-            self.redraw()
+            self.refresh()
 
     def search(self, backward=False):
         """Prompt then search for a pattern."""
-        p = re.compile(self.gets('/'), re.IGNORECASE)
+        p = re.compile(self.read_input('/'), re.IGNORECASE)
         entries = deque(self.entries)
         entries.rotate(-self.idx())
         self.search_res = deque(filter(
@@ -279,7 +284,7 @@ class Comp(Omp):
         if self.search_res:
             self.move(self.idx(self.search_res[0]) - self.idx())
         else:
-            self.update_status(_("Pattern not found"), curses.color_pair(1))
+            self.print_msg(_("Pattern not found"), error=True)
 
     def next_search(self, backward=False):
         """Repeat previous search."""
@@ -287,7 +292,7 @@ class Comp(Omp):
             self.search_res.rotate(1 if backward else -1)
             self.move(self.idx(self.search_res[0]) - self.idx())
         else:
-            self.update_status(_("Pattern not found"), curses.color_pair(1))
+            self.print_msg(_("Pattern not found"), error=True)
 
     def resize(self):
         curses.update_lines_cols()
@@ -301,16 +306,16 @@ class Comp(Omp):
         elif self.y > l:    # shorter than the current entry
             self.start += self.y - l
             self.y = l
-            self.redraw()
+            self.refresh()
         elif 0 < self.start > len(self.entries) - l:    # longer than the list
             idx, self.start = self.idx(), min(0, len(self.entries) - l)
             self.y = idx - self.start + 1
             if self.y > l:
                 self.start += self.y - l
                 self.y = l
-            self.redraw()
+            self.refresh()
         else:
-            self.redraw()
+            self.refresh()
 
     def __exit__(self, exc_type, exc_value, traceback):
         curses.nocbreak()
@@ -324,7 +329,7 @@ parser = ArgumentParser(description=_("Curses Omni Media Player"))
 parser.add_argument('-e', '--extractor', default='youtube-dl',
                     choices=('json', 'mpv', 'youtube-dl'), required=False,
                     help=_("playlist extractor, default is youtube-dl"))
-parser.add_argument('file', help=_("path or URL to the playlist to be opened"))
+parser.add_argument('playlist', help=_("path or URL to the playlist"))
 parser.add_argument('-c', '--config', default=USER_CONFIG, required=False,
                     help=_("path to the configuration file"))
 parser.add_argument('--vid', required=False,
@@ -332,16 +337,16 @@ parser.add_argument('--vid', required=False,
                             no disables video"))
 parser.add_argument('--vo', required=False, metavar='DRIVER',
                     help=_("specify the video output backend to be used. See\
-                            VIDEO OUTPUT DRIVERS in mpv(1) man page for\
-                            details and descriptions of available drivers"))
+                            VIDEO OUTPUT DRIVERS in mpv(1) for details and\
+                            descriptions of available drivers"))
 parser.add_argument('-f', '--format', required=False, metavar='YTDL_FORMAT',
                     help=_("video format/quality to be passed to youtube-dl"))
 args = parser.parse_args()
-entries = extract_info(args.file, args.extractor)
+entries = extract_info(args.playlist, args.extractor)
 if entries is None:
     print(_("'{}': Can't extract playlist").format(args.file))
     exit()
-json_file = args.file if args.extractor == 'json' else ''
+json_file = args.playlist if args.extractor == 'json' else ''
 config = ConfigParser()
 config.read(args.config)
 vid = args.vid or config.get('mpv', 'video', fallback='auto')
@@ -384,54 +389,42 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             comp.mp.vid = comp.vid
             comp.update_status()
         elif c == 87:   # letter W
-            s = comp.gets(_("Save playlist to [{}]: ").format(comp.json_file))
-            if s: comp.json_file = s
-            try:
-                makedirs(dirname(abspath(comp.json_file)), exist_ok=True)
-                with open(comp.json_file, 'w') as f:
-                    json.dump(comp.entries, f, ensure_ascii=False,
-                              indent=2, sort_keys=True)
-            except:
-                errmsg = _("'{}': Can't open file for writing").format(
-                    comp.json_file)
-                comp.update_status(errmsg, curses.color_pair(1))
-            else:
-                comp.update_status(_("'{}' written").format(comp.json_file))
+            comp.dump_json()
         elif c == 100:  # letter d
             comp.entries.pop(comp.idx())
             if 1 < len(comp.entries) - curses.LINES + 4 == comp.start:
                 comp.start -= 1
             elif comp.idx() == len(comp.entries):
                 comp.y -= 1
-            comp.redraw()
+            comp.refresh()
         elif c == 105:   # letter i
-            extractor = comp.gets(_("Playlist extractor: "))
-            filename = comp.gets(_("Insert: "))
+            extractor = comp.read_input(_("Playlist extractor: "))
+            filename = comp.read_input(_("Insert: "))
             entries = extract_info(filename, extractor)
             if entries is None:
-                comp.update_status(
+                comp.print_msg(
                     _("'{}': Can't extract playlist").format(filename))
             else:
                 bottom = comp.entries[comp.idx():]
                 comp.entries = comp.entries[:comp.idx()]
                 comp.entries.extend(entries)
                 comp.entries.extend(bottom)
-                comp.redraw()
+                comp.refresh()
         elif c == 109:  # letter m
             comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
         elif c == 110:  # letter n
             comp.next_search()
         elif c == 111:   # letter o
-            extractor = comp.gets(_("Playlist extractor: "))
-            filename = comp.gets(_("Open: "))
+            extractor = comp.read_input(_("Playlist extractor: "))
+            filename = comp.read_input(_("Open: "))
             entries = extract_info(filename, extractor)
             if entries is None:
-                comp.update_status(
+                comp.print_msg(
                     _("'{}': Can't extract playlist").format(filename))
             else:
                 comp.entries, comp.start, comp.y = entries, 0, 1
-                comp.redraw()
+                comp.refresh()
         elif c == 112:  # letter p
             comp.mp.pause ^= True
         elif c in (curses.KEY_UP, 107):     # up arrow or letter k
