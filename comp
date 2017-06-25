@@ -344,7 +344,7 @@ parser.add_argument('-f', '--format', required=False, metavar='YTDL_FORMAT',
 args = parser.parse_args()
 entries = extract_info(args.playlist, args.extractor)
 if entries is None:
-    print(_("'{}': Can't extract playlist").format(args.file))
+    print(_("'{}': Can't extract playlist").format(args.playlist))
     exit()
 json_file = args.playlist if args.extractor == 'json' else ''
 config = ConfigParser()

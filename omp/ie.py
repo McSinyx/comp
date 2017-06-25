@@ -24,10 +24,15 @@ from urllib.request import urlretrieve
 from youtube_dl import YoutubeDL
 from mpv import MPV
 
+
 DEFAULT_ENTRY = {'filename': '', 'title': '', 'duration': '00:00:00',
                  'error': False, 'playing': False, 'selected': False}
-YTDL_OPTS = {'quiet': True, 'default_search': 'ytsearch',
-             'extract_flat': 'in_playlist'}
+
+
+class YoutubeDLLogger:
+    def debug(self, msg): pass
+    def warning(self, msg): pass
+    def error(self, msg): pass
 
 
 def json_extract_info(filename):
@@ -69,7 +74,9 @@ def ytdl_extract_info(filename):
     """Return list of entries extracted from a path or URL using
     youtube-dl. If an error occur during the extraction, return None.
     """
-    with YoutubeDL(YTDL_OPTS) as ytdl:
+    ytdl_opts = {'logger': YoutubeDLLogger, 'default_search': 'ytsearch',
+                 'extract_flat': 'in_playlist'}
+    with YoutubeDL(ytdl_opts) as ytdl:
         try:
             raw_info = ytdl.extract_info(filename, download=False)
         except:

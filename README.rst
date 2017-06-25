@@ -2,41 +2,28 @@
 comp - Curses Omni Media Player
 ===============================
 
-comp is a mpv front-end using curses. It has basic media player functions and
-can to extract playlists from multiple sources such as media sites supported by
-youtube-dl, local and direct URL to video/audio and its own JSON playlist
-format.
+**comp** is a mpv front-end using curses. It has basic media player functions
+and can to extract playlists from multiple sources such as media sites
+supported by youtube-dl, local and direct URL to video/audio and its own JSON
+playlist format.
 
 .. image:: https://github.com/McSinyx/comp/raw/master/doc/screenshot.png
 
 Installation
 ------------
 
-comp requires Python 3.5+ with ``curses`` module (only available on Unix-like
-OSes such as GNU/Linux and the BSDs) and ``libmpv`` (available as ``libmpv1``
-in Debian/Ubuntu, openSUSE; and as ``mpv`` in Arch Linux, Gentoo, macOS
-Homebrew repository). It also depends on ``python-mpv`` and ``youtube-dl`` but 
-the setup program will automatically install them if they are missing.
+**comp** requires Python 3.5+ with ``curses`` module (only available on
+Unix-like OSes such as GNU/Linux and the BSDs) and ``libmpv`` (available as
+``libmpv1`` in Debian/Ubuntu, openSUSE; and as ``mpv`` in Arch Linux, Gentoo,
+macOS Homebrew repository). It also depends on ``python-mpv`` and
+``youtube-dl`` but the setup program will automatically install them if they
+are missing.
 
-Using pip
-^^^^^^^^^
-
-Python 2 is still the default on most distributions so the command would be
-``pip3 install comp``. You can use the ``--user`` flag to avoid system-wide
-installation.
-
-Using setup.py
-^^^^^^^^^^^^^^
-
-To install the latest version or test development branches, you'll need to do
-it manually::
-
-   git clone https://github.com/McSinyx/comp.git
-   cd comp
-   ./setup.py install
-
-Note that ``setup.py`` uses ``setuptools`` which is a third-party module and
-can be install using ``pip3``.
+As ``setuptools`` will `install in an egg and cause breakage
+<https://github.com/McSinyx/comp/issues/5>`_, using ``pip`` is a must.  After
+`installing it <https://pip.pypa.io/en/latest/installing/>`_, run ``pip install
+comp`` (depends on your operating system, Python 3 pip executable might be
+either ``pip`` or ``pip3``).
 
 Command line options
 --------------------
@@ -76,7 +63,7 @@ Open a JSON playlist::
 
 Open a Youtube playlist with video height lower than 720::
 
-   comp -f [height<720] https://www.youtube.com/watch?v=pqkHrdYXaTk&list=PLnk14Iku8QM7R3ARnrj1TwYSZleF-i7jT
+   comp -f '[height<720]' https://www.youtube.com/list=PLnk14Iku8QM7R3ARnrj1TwYSZleF-i7jT
 
 Keyboard control
 ----------------
