@@ -68,7 +68,7 @@ Open a JSON playlist::
 
 Open a Youtube playlist with video height lower than 720::
 
-   comp -f '[height<720]' https://www.youtube.com/list=PLnk14Iku8QM7R3ARnrj1TwYSZleF-i7jT
+   comp -f '[height<720]' https://www.youtube.com/watch?list=PLnk14Iku8QM7R3ARnrj1TwYSZleF-i7jT
 
 Keyboard control
 ----------------
