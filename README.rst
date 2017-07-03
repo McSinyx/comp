@@ -20,10 +20,15 @@ macOS Homebrew repository). It also depends on ``python-mpv`` and
 are missing.
 
 As ``setuptools`` will `install in an egg and cause breakage
-<https://github.com/McSinyx/comp/issues/5>`_, using ``pip`` is a must.  After
-`installing it <https://pip.pypa.io/en/latest/installing/>`_, run ``pip install
-comp`` (depends on your operating system, Python 3 pip executable might be
-either ``pip`` or ``pip3``).
+<https://github.com/McSinyx/comp/issues/5>`_, using ``pip`` (Python 3 version) 
+is a must.  After `installing it <https://pip.pypa.io/en/latest/installing/>`_,
+run ``pip3 install comp`` (you might want to add ``--user`` flag to use the
+`User Scheme <https://pip.pypa.io/en/stable/user_guide/#user-installs>`_).
+
+For developers, clone the `Github repo <https://github.com/McSinyx/comp>`_ then
+simply run the ``comp`` executable to test the program. If you insist on
+installing it, still use ``pip3``: ``pip3 install .``. Note that **comp** is
+distibuted in a ``wheel`` created via ``./setup.py bdist_wheel``.
 
 Command line options
 --------------------
