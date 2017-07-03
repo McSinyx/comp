@@ -74,7 +74,7 @@ def ytdl_extract_info(filename):
     """Return list of entries extracted from a path or URL using
     youtube-dl. If an error occur during the extraction, return None.
     """
-    ytdl_opts = {'logger': YoutubeDLLogger, 'default_search': 'ytsearch',
+    ytdl_opts = {'logger': YoutubeDLLogger(), 'default_search': 'ytsearch',
                  'extract_flat': 'in_playlist'}
     with YoutubeDL(ytdl_opts) as ytdl:
         try:

@@ -1,4 +1,5 @@
 MANIFEST
 build
+comp.egg-info
 dist
 __pycache__
