@@ -2,11 +2,10 @@
 comp - Curses Omni Media Player
 ===============================
 
-**comp** is a `mpv <https://github.com/mpv-player/mpv>`_ front-end using
-curses. It has basic media player functions and can to extract playlists from
-multiple sources such as media sites supported by `youtube-dl
-<https://github.com/rg3/youtube-dl>`_, local and direct URL to video/audio and
-its own JSON playlist format.
+**comp** is a `mpv <https://mpv.io/>`_ front-end using curses. It has basic
+media player functions and can to extract playlists from multiple sources such
+as media sites supported by `youtube-dl <https://rg3.github.io/youtube-dl/>`_,
+local and direct URL to video/audio and its own JSON playlist format.
 
 .. image:: https://github.com/McSinyx/comp/raw/master/doc/screenshot.png
 
