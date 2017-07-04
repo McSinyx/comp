@@ -102,15 +102,16 @@ class Comp(Omp):
 
         if self.mp.osd.duration is not None:
             self.played[self.playing]['duration'] = self.mp.osd.duration
-        add_status_str(self.mp.osd.time_pos or '00:00:00', X=8)
-        add_status_str('/', x=9, X=10)
-        add_status_str(self.mp.osd.duration or '00:00:00', x=11, X=19)
-        add_status_str('|' if self.mp.pause else '>', x=20, X=21)
-        add_status_str((self.mp.media_title or b'').decode(), x=22,
+        add_status_str(':', X=5, lpad=3)
+        if self.vid != 'no': add_status_str('V', x=1, X=2)
+        if not self.mp.mute: add_status_str('A', X=1)
+        add_status_str(self.mp.osd.time_pos or '00:00:00', x=4, X=12)
+        add_status_str('/', x=13, X=14)
+        add_status_str(self.mp.osd.duration or '00:00:00', x=15, X=23)
+        add_status_str('|' if self.mp.pause else '>', x=24, X=25)
+        add_status_str((self.mp.media_title or b'').decode(), x=26,
                        attr=curses.color_pair(12)|curses.A_BOLD)
-        add_status_str(_(self.mode), x=-5-len(_(self.mode)))
-        if not self.mp.mute: add_status_str('A', x=-4, X=-3)
-        if self.vid != 'no': add_status_str('V', x=-2, lpad=0)
+        add_status_str(_(self.mode), x=-2-len(_(self.mode)))
         self.scr.refresh()
 
     def print_msg(self, message, error=False):
@@ -326,6 +327,8 @@ class Comp(Omp):
 
 
 parser = ArgumentParser(description=_("Curses Omni Media Player"))
+parser.add_argument('-v', '--version', action='version',
+                    version='%(prog)s 0.3.10')
 parser.add_argument('-e', '--extractor', default='youtube-dl',
                     choices=('json', 'mpv', 'youtube-dl'), required=False,
                     help=_("playlist extractor, default is youtube-dl"))
@@ -360,9 +363,8 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
         if c == 10:     # curses.KEY_ENTER doesn't work
             comp.update_playlist()
             comp.next(force=True)
-        elif c == 32:   # space
-            comp.current()['selected'] = not comp.current().get('selected')
-            comp.move(1)
+        elif c in (32, 112):  # space or letter p
+            comp.mp.pause ^= True
         elif c == 47:   # /
             comp.search()
         elif c == 60:   # <
@@ -379,6 +381,13 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             comp.search(backward=True)
         elif c == 65:   # letter A
             comp.mp.mute ^= True    # hack to toggle bool value
+        elif c == 68:   # letter D
+            comp.entries.pop(comp.idx())
+            if 1 < len(comp.entries) - curses.LINES + 4 == comp.start:
+                comp.start -= 1
+            elif comp.idx() == len(comp.entries):
+                comp.y -= 1
+            comp.refresh()
         elif c == 77:   # letter M
             comp.mode = MODES[(MODES.index(comp.mode) - 1) % 8]
             comp.update_status()
@@ -391,12 +400,8 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
         elif c == 87:   # letter W
             comp.dump_json()
         elif c == 100:  # letter d
-            comp.entries.pop(comp.idx())
-            if 1 < len(comp.entries) - curses.LINES + 4 == comp.start:
-                comp.start -= 1
-            elif comp.idx() == len(comp.entries):
-                comp.y -= 1
-            comp.refresh()
+            comp.current()['selected'] = not comp.current().get('selected')
+            comp.move(1)
         elif c == 105:   # letter i
             extractor = comp.read_input(_("Playlist extractor: "))
             filename = comp.read_input(_("Insert: "))
@@ -425,8 +430,6 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             else:
                 comp.entries, comp.start, comp.y = entries, 0, 1
                 comp.refresh()
-        elif c == 112:  # letter p
-            comp.mp.pause ^= True
         elif c in (curses.KEY_UP, 107):     # up arrow or letter k
             comp.move(-1)
         elif c in (curses.KEY_DOWN, 106):   # down arrow or letter j

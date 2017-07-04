@@ -25,6 +25,9 @@ path or URL to the playlist
 .B -h, --help
 show this help message and exit
 .TP
+.B -v, --version
+show program's version number and exit
+.TP
 .B -e \fR{json,mpv,youtube-dl}, \fB--extractor \fR{json,mpv,youtube-dl}
 playlist extractor, default is \fIyoutube-dl
 .TP
@@ -46,76 +49,73 @@ video format/quality to be passed to youtube-dl
 .SH KEYBOARD CONTROL
 .TP
 .B Return
-start playing
+Start playing.
 .TP
-.B Space
-select the current track
+.B Space, p
+Toggle pause.
 .TP
 .B /, ?
-search forward/backward for a pattern
+Search forward/backward for a pattern.
 .TP
 .B <, >
-go backward/forward in the playlist
+Go backward/forward in the playlist.
 .TP
 .B A
-toggle mute
+Toggle mute.
+.TP
+.B D
+Delete the current entry.
 .TP
 .B N
-repeat previous search in reverse direction
+Repeat previous search in reverse direction.
 .TP
 .B V
-toggle video
+Toggle video.
 .TP
 .B W
-save the current playlist under JSON format
+Save the current playlist under JSON format.
 .TP
 .B d
-delete current entry
+Deselect/reselect the current entry.
 .TP
 .B i
-insert playlist
+Insert playlist.
 .TP
 .B m, M
-cycle forward/backward through playing modes
+Cycle forward/backward through playing modes.
 .TP
 .B n
-repeat previous search
-.TP
-.B p
-toggle pause
+Repeat previous search.
 .TP
 .B o
-open playlist
-.TP
-.B w
-download tracks set by playing mode
+Open playlist.
 .TP
 .B Up, k
-move a single line up
+Move a single line up.
 .TP
 .B Down, j
-move a single line down
+Move a single line down.
 .TP
 .B Left, h
-seek backward 5 seconds
+Seek backward 5 seconds.
 .TP
 .B Right, l
-seek forward 5 seconds
+Seek forward 5 seconds.
 .TP
 .B Home
-move to the beginning of the playlist
+Move to the beginning of the playlist.
 .TP
 .B End
-move to the end of the playlist
+Move to the end of the playlist.
 .TP
 .B Page Up
-move a single page up
+Move a single page up.
 .TP
 .B Page Down
-move a single page down
+Move a single page down.
 .TP
 .B F5
-redraw the screen content
+Redraw the screen content.
 .SH FILES
 .TP
 .I ~/.config/comp/settings.ini

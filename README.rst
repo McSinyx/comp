@@ -35,7 +35,6 @@ Command line options
 
 ::
 
-   $ comp --help
    usage: comp [-h] [-e {json,mpv,youtube-dl}] [-c CONFIG] [--vid VID]
                [--vo DRIVER] [-f YTDL_FORMAT]
                playlist
@@ -47,6 +46,7 @@ Command line options
 
    optional arguments:
      -h, --help            show this help message and exit
+     -v, --version         show program's version number and exit
      -e {json,mpv,youtube-dl}, --extractor {json,mpv,youtube-dl}
                            playlist extractor, default is youtube-dl
      -c CONFIG, --config CONFIG
@@ -73,55 +73,74 @@ Open a Youtube playlist with video height lower than 720::
 Keyboard control
 ----------------
 
-+--------------+----------------------------------------------+
-|     Key      |                   Action                     |
-+==============+==============================================+
-| Return       | Start playing                                |
-+--------------+----------------------------------------------+
-| Space        | Select the current track                     |
-+--------------+----------------------------------------------+
-| ``/``, ``?`` | Search forward/backward for a pattern        |
-+--------------+----------------------------------------------+
-| ``<``, ``>`` | Go backward/forward in the playlist          |
-+--------------+----------------------------------------------+
-| ``A``        | Toggle mute                                  |
-+--------------+----------------------------------------------+
-| ``N``        | Repeat previous search in reverse direction  |
-+--------------+----------------------------------------------+
-| ``V``        | Toggle video                                 |
-+--------------+----------------------------------------------+
-| ``W``        | Save the current playlist under JSON format  |
-+--------------+----------------------------------------------+
-| ``d``        | Delete current entry                         |
-+--------------+----------------------------------------------+
-| ``i``        | Insert playlist                              |
-+--------------+----------------------------------------------+
-| ``m``, ``M`` | Cycle forward/backward through playing modes |
-+--------------+----------------------------------------------+
-| ``n``        | Repeat previous search                       |
-+--------------+----------------------------------------------+
-| ``p``        | Toggle pause                                 |
-+--------------+----------------------------------------------+
-| ``o``        | Open playlist                                |
-+--------------+----------------------------------------------+
-| Up, ``k``    | Move a single line up                        |
-+--------------+----------------------------------------------+
-| Down, ``j``  | Move a single line down                      |
-+--------------+----------------------------------------------+
-| Left, ``h``  | Seek backward 5 seconds                      |
-+--------------+----------------------------------------------+
-| Right, ``l`` | Seek forward 5 seconds                       |
-+--------------+----------------------------------------------+
-| Home         | Move to the beginning of the playlist        |
-+--------------+----------------------------------------------+
-| End          | Move to the end of the playlist              |
-+--------------+----------------------------------------------+
-| Page Up      | Move a single page up                        |
-+--------------+----------------------------------------------+
-| Page Down    | Move a single page down                      |
-+--------------+----------------------------------------------+
-| F5           | Redraw the screen content                    |
-+--------------+----------------------------------------------+
+Return
+   Start playing.
+
+Space, ``p``
+   Toggle pause.
+
+``/``, ``?``
+   Search forward/backward for a pattern.
+
+``<``, ``>``
+   Go backward/forward in the playlist.
+
+``A``
+   Toggle mute.
+
+``D``
+   Delete the current entry.
+
+``N``
+   Repeat previous search in reverse direction.
+
+``V``
+   Toggle video.
+
+``W``
+   Save the current playlist under JSON format.
+
+``d``
+   Deselect/reselect the current entry.
+
+``i``
+   Insert playlist.
+
+``m``, ``M``
+   Cycle forward/backward through playing modes.
+
+``n``
+   Repeat previous search.
+
+``o``
+   Open playlist.
+
+Up, ``k``
+   Move a single line up.
+
+Down, ``j``
+   Move a single line down.
+
+Left, ``h``
+   Seek backward 5 seconds.
+
+Right, ``l``
+   Seek forward 5 seconds.
+
+Home
+   Move to the beginning of the playlist.
+
+End
+   Move to the end of the playlist.
+
+Page Up
+   Move a single page up.
+
+Page Down
+   Move a single page down.
+
+F5
+   Redraw the screen content.
 
 Configuration files
 -------------------

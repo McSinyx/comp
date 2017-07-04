@@ -20,7 +20,8 @@ import json
 from collections import deque
 from gettext import bindtextdomain, gettext as _, textdomain
 from itertools import cycle
-from os.path import abspath, expanduser, expandvars, isfile
+from os import makedirs
+from os.path import abspath, dirname, expanduser, expandvars, isfile
 from random import choice
 from time import gmtime, sleep, strftime
 from urllib import request
@@ -141,18 +142,18 @@ class Omp(object):
     def dump_json(self):
         s = self.read_input(
             _("Save playlist to [{}]: ").format(self.json_file))
-        if s: self.json_file = abspath(expanduser(expandvars(s)))
+        self.json_file = abspath(expanduser(expandvars(s or self.json_file)))
         try:
-            makedirs(dirname(comp.json_file), exist_ok=True)
-            with open(self.json_file, 'w') as f:
-                json.dump(self.entries, f, ensure_ascii=False,
-                          indent=2, sort_keys=True)
+            makedirs(dirname(self.json_file), exist_ok=True)
         except:
             errmsg = _("'{}': Can't open file for writing").format(
                 self.json_file)
             self.print_msg(errmsg, error=True)
         else:
-            self.print_msg(_("'{}' written").format(comp.json_file))
+            with open(self.json_file, 'w') as f:
+                json.dump(self.entries, f, ensure_ascii=False,
+                          indent=2, sort_keys=True)
+            self.print_msg(_("'{}' written").format(self.json_file))
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.mp.quit()
