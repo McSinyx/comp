@@ -326,24 +326,24 @@ class Comp(Omp):
         Omp.__exit__(self, exc_type, exc_value, traceback)
 
 
-parser = ArgumentParser(description=_("Curses Omni Media Player"))
+parser = ArgumentParser(description='Curses Omni Media Player')
 parser.add_argument('-v', '--version', action='version',
-                    version='%(prog)s 0.3.10')
+                    version='%(prog)s 0.3.11')
 parser.add_argument('-e', '--extractor', default='youtube-dl',
                     choices=('json', 'mpv', 'youtube-dl'), required=False,
-                    help=_("playlist extractor, default is youtube-dl"))
-parser.add_argument('playlist', help=_("path or URL to the playlist"))
+                    help='playlist extractor, default is youtube-dl')
+parser.add_argument('playlist', help='path or URL to the playlist')
 parser.add_argument('-c', '--config', default=USER_CONFIG, required=False,
-                    help=_("path to the configuration file"))
+                    help='path to the configuration file')
 parser.add_argument('--vid', required=False,
-                    help=_("initial video channel. auto selects the default,\
-                            no disables video"))
+                    help='initial video channel. auto selects the default, no\
+                          disables video')
 parser.add_argument('--vo', required=False, metavar='DRIVER',
-                    help=_("specify the video output backend to be used. See\
-                            VIDEO OUTPUT DRIVERS in mpv(1) for details and\
-                            descriptions of available drivers"))
+                    help='specify the video output backend to be used. See\
+                          VIDEO OUTPUT DRIVERS in mpv(1) for details and\
+                          descriptions of available drivers')
 parser.add_argument('-f', '--format', required=False, metavar='YTDL_FORMAT',
-                    help=_("video format/quality to be passed to youtube-dl"))
+                    help='video format/quality to be passed to youtube-dl')
 args = parser.parse_args()
 entries = extract_info(args.playlist, args.extractor)
 if entries is None:
