@@ -109,7 +109,7 @@ class Comp(Omp):
         add_status_str('/', x=13, X=14)
         add_status_str(self.mp.osd.duration or '00:00:00', x=15, X=23)
         add_status_str('|' if self.mp.pause else '>', x=24, X=25)
-        add_status_str((self.mp.media_title or b'').decode(), x=26,
+        add_status_str(self.mp.media_title or '', x=26,
                        attr=curses.color_pair(12)|curses.A_BOLD)
         add_status_str(_(self.mode), x=-2-len(_(self.mode)))
         self.scr.refresh()
@@ -199,7 +199,6 @@ class Comp(Omp):
     def property_handler(self, name, val): self.update_status()
 
     def __init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
-        Omp.__init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf)
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -209,6 +208,7 @@ class Comp(Omp):
         for i in range(1, 8): curses.init_pair(i, i, -1)
         curses.init_pair(8, -1, 7)
         for i in range(1, 7): curses.init_pair(i + 8, -1, i)
+        Omp.__init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf)
         self.refresh()
 
     def __enter__(self): return self
@@ -369,7 +369,7 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             comp.search()
         elif c == 60:   # <
             try:
-                if comp.mp._get_property('time-pos', float) < 1:
+                if comp.mp.time_pos < 1:
                     comp.next(backward=True)
                 else:
                     comp.seek(0, 'absolute')
