@@ -74,8 +74,9 @@ class Omp(object):
         if mpv_vo is not None: self.mp['vo'] = mpv_vo
         @self.mp.property_observer('mute')
         @self.mp.property_observer('pause')
-        @self.mp.property_observer('time-pos', force_fmt=MpvFormat.INT64)
+        @self.mp.property_observer('time-pos')
         def observer(name, value): self.property_handler(name, value)
+        self.mp.register_key_binding('q', lambda state, key: None)
 
     def __enter__(self): return self
 
