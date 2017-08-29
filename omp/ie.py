@@ -1,5 +1,5 @@
 # ie.py - Omni Media Player infomation extractor
-# This is a part of comp
+# This file is part of comp
 #
 # comp is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as

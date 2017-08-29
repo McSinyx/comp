@@ -240,15 +240,6 @@ class Comp(Omp):
         curses.noecho()
         return b.decode()
 
-    def seek(self, amount, reference='relative', precision='default-precise'):
-        """Wrap mp.seek with a try clause to avoid crash when nothing is
-        being played.
-        """
-        try:
-            self.mp.seek(amount, reference, precision)
-        except:
-            pass
-
     def move(self, delta):
         """Move to the relatively next delta entry."""
         if not (self.entries and delta): return
