@@ -103,11 +103,32 @@ class Omp(object):
         if self.playing < -1: self.played = self.played[:self.playing+1]
 
     def seek(self, amount, reference='relative', precision='default-precise'):
-        """Wrap mp.seek with a try clause to avoid crash when nothing is
-        being played.
+        """Wrap a try clause around mp.seek to avoid crashing when
+        nothing is being played.
         """
         try:
             self.mp.seek(amount, reference, precision)
+        except:
+            pass
+
+    def add(self, name, value=1):
+        """Wrap a try clause around mp._add_property."""
+        try:
+            self.mp._add_property(name, value)
+        except:
+            pass
+
+    def cycle(self, name, direction='up'):
+        """Wrap a try clause around mp._cycle_property."""
+        try:
+            self.mp._cycle_property(name, direction='up')
+        except:
+            pass
+
+    def multiply(self, name, factor):
+        """Wrap a try clause around mp._multiply_property."""
+        try:
+            self.mp._multiply_property(name, factor)
         except:
             pass
 

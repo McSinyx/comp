@@ -22,6 +22,7 @@ import re
 from argparse import ArgumentParser
 from collections import deque
 from configparser import ConfigParser
+from curses.ascii import ctrl, alt
 from functools import reduce
 from gettext import bindtextdomain, gettext as _, textdomain
 from os import makedirs
@@ -349,16 +350,42 @@ mode = config.get('comp', 'play-mode', fallback='play-current')
 ytdlf = args.format or config.get('youtube-dl', 'format', fallback='best')
 
 with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
-    c = comp.scr.getch()
-    while c != 113:     # letter q
-        if c == 10:     # curses.KEY_ENTER doesn't work
-            comp.update_playlist()
-            comp.next(force=True)
-        elif c in (32, 112):  # space or letter p
-            comp.mp.pause ^= True
-        elif c == 47:   # /
-            comp.search()
-        elif c == 60:   # <
+    c = comp.scr.get_wch()
+    while c != 'q':
+        # mpv keybindings
+        if c == curses.KEY_LEFT:
+            comp.seek(-5, precision='exact')
+        elif c == curses.KEY_RIGHT:
+            comp.seek(5, precision='exact')
+        elif c == curses.KEY_SLEFT:     # Shifted Left-arrow
+            comp.seek(-1, precision='exact')
+        elif c == curses.KEY_SRIGHT:    # Shifted Right-arrow
+            comp.seek(1, precision='exact')
+        elif c == curses.KEY_UP:
+            comp.seek(-60, precision='exact')
+        elif c == curses.KEY_DOWN:
+            comp.seek(60, precision='exact')
+        elif c == curses.KEY_PPAGE:
+            comp.add('chapter', 1)
+        elif c == curses.KEY_NPAGE:
+            comp.add('chapter', -1)
+        elif c == '[':
+            comp.multiply('speed', 0.9091)
+        elif c == ']':
+            comp.multiply('speed', 1.1)
+        elif c == '{':
+            comp.multiply('speed', 0.5)
+        elif c == '}':
+            comp.multiply('speed', 2.0)
+        elif c == curses.KEY_BACKSPACE:
+            comp.mp.speed = 1.0
+        elif c in ('p', ' '):
+            comp.cycle('pause')
+        elif c == '.':
+            comp.mp.frame_step()
+        elif c == ',':
+            comp.mp.frame_back_step()
+        elif c == '<':
             try:
                 if comp.mp.time_pos < 1:
                     comp.next(backward=True)
@@ -366,34 +393,126 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
                     comp.seek(0, 'absolute')
             except:
                 pass
-        elif c == 62:   # >
+        elif c == '>':
             comp.next()
-        elif c == 63:   # ?
-            comp.search(backward=True)
-        elif c == 65:   # letter A
+        elif c == '\n':     # curses.KEY_ENTER doesn't work
+            comp.update_playlist()
+            comp.next(force=True)
+        elif c in ('o', 'P'):
+            comp.mp.show_progress()
+        elif c == 'z':
+            comp.add('sub-delay', -0.1)
+        elif c == 'x':
+            comp.add('sub-delay', 0.1)
+        elif c == ctrl('+'):
+            comp.add('audio-delay', 0.1)
+        elif c == ctrl('-'):
+            comp.add('audio-delay', -0.1)
+        elif c in ('/', '9'):
+            comp.add('volume', -2)
+        elif c in ('*', '0'):
+            comp.add('volume', 2)
+        elif c == 'm':
             comp.mp.mute ^= True    # hack to toggle bool value
-        elif c == 68:   # letter D
+        elif c == '1':
+            comp.add('contrast', -1)
+        elif c == '2':
+            comp.add('contrast', 1)
+        elif c == '3':
+            comp.add('brightness', -1)
+        elif c == '4':
+            comp.add('brightness', 1)
+        elif c == '5':
+            comp.add('gamma', -1)
+        elif c == '6':
+            comp.add('gamma', 1)
+        elif c == '7':
+            comp.add('saturation', -1)
+        elif c == '8':
+            comp.add('saturation', 1)
+        elif c == alt('0'):
+            comp.mp.window_scale = 0.5
+        elif c == alt('1'):
+            comp.mp.window_scale = 1.0
+        elif c == alt('2'):
+            comp.mp.window_scale = 2.0
+        elif c == 'd':
+            comp.cycle('deinterlace')
+        elif c == 'r':
+            comp.add('sub-pos', -1)
+        elif c == 't':
+            comp.add('sub-pos', 1)
+        elif c == 'v':
+            comp.cycle('sub-visibility')
+        elif c == 'V':
+            comp.cycle('sub-ass-vsfilter-aspect-compat')
+        elif c == 'j':
+            comp.cycle('sub', 'up')
+        elif c == 'J':
+            comp.cycle('sub', 'down')
+        elif c == '#':
+            comp.cycle('audio')
+        elif c == '_':
+            comp.cycle('video')
+        elif c == 'T':
+            comp.cycle('ontop')
+        elif c == 'f':
+            comp.cycle('fullscreen')
+        elif c == 's':
+            comp.mp.screenshot()
+        elif c == 'S':
+            comp.mp.screenshot(includes='')
+        elif c == alt('s'):
+            comp.mp.screenshot(mode='each-frame')
+        elif c == 'w':
+            comp.add('panscan', -0.1)
+        elif c == 'e':
+            comp.add('panscan', 0.1)
+        elif c == 'E':
+            comp.cycle('edition')
+        elif c == 'l':
+            comp.mp.command('ab-loop')
+
+        # Basic movements
+        elif c == ctrl('p'):
+            comp.move(-1)
+        elif c == ctrl('n'):
+            comp.move(1)
+        elif c == alt('v'):
+            comp.move(4 - curses.LINES)
+        elif c == ctrl('v'):
+            comp.move(curses.LINES - 4)
+        elif c in (ctrl('<'), curses.KEY_HOME):
+            comp.move(-len(comp.entries))
+        elif c in (ctrl('>'), curses.KEY_END):
+            comp.move(len(comp.entries))
+
+        elif c == '/':
+            comp.search()
+        elif c == '?':
+            comp.search(backward=True)
+        elif c == 'D':
             comp.entries.pop(comp.idx())
             if 1 < len(comp.entries) - curses.LINES + 4 == comp.start:
                 comp.start -= 1
             elif comp.idx() == len(comp.entries):
                 comp.y -= 1
             comp.refresh()
-        elif c == 77:   # letter M
+        elif c == 'M':
             comp.mode = MODES[(MODES.index(comp.mode) - 1) % 8]
             comp.update_status()
-        elif c == 78:  # letter N
+        elif c == 'N':
             comp.next_search(backward=True)
-        elif c == 86:   # letter V
+        elif c == 'V':
             comp.vid = 'auto' if comp.vid == 'no' else 'no'
             comp.mp.vid = comp.vid
             comp.update_status()
-        elif c == 87:   # letter W
+        elif c == 'W':
             comp.dump_json()
-        elif c == 100:  # letter d
+        elif c == 'd':
             comp.current()['selected'] = not comp.current().get('selected')
             comp.move(1)
-        elif c == 105:   # letter i
+        elif c == 'i':
             extractor = comp.read_input(_("Playlist extractor: "))
             filename = comp.read_input(_("Insert: "))
             entries = extract_info(filename, extractor)
@@ -406,12 +525,12 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
                 comp.entries.extend(entries)
                 comp.entries.extend(bottom)
                 comp.refresh()
-        elif c == 109:  # letter m
+        elif c == 'm':
             comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
-        elif c == 110:  # letter n
+        elif c == 'n':
             comp.next_search()
-        elif c == 111:   # letter o
+        elif c == 'o':
             extractor = comp.read_input(_("Playlist extractor: "))
             filename = comp.read_input(_("Open: "))
             entries = extract_info(filename, extractor)
@@ -421,22 +540,6 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             else:
                 comp.entries, comp.start, comp.y = entries, 0, 1
                 comp.refresh()
-        elif c in (curses.KEY_UP, 107):     # up arrow or letter k
-            comp.move(-1)
-        elif c in (curses.KEY_DOWN, 106):   # down arrow or letter j
-            comp.move(1)
-        elif c in (curses.KEY_LEFT, 104):   # left arrow or letter h
-            comp.seek(-5, precision='exact')
-        elif c in (curses.KEY_RIGHT, 108):  # right arrow or letter l
-            comp.seek(5, precision='exact')
-        elif c == curses.KEY_HOME:  # home
-            comp.move(-len(comp.entries))
-        elif c == curses.KEY_END:   # end
-            comp.move(len(comp.entries))
-        elif c == curses.KEY_NPAGE:     # page down
-            comp.move(curses.LINES - 4)
-        elif c == curses.KEY_PPAGE:     # page up
-            comp.move(4 - curses.LINES)
         elif c in (curses.KEY_F5, curses.KEY_RESIZE):
             comp.resize()
-        c = comp.scr.getch()
+        c = comp.scr.get_wch()
