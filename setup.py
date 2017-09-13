@@ -7,7 +7,7 @@ with open('README.rst') as f:
 
 setup(
     name='comp',
-    version='0.3.12',
+    version='0.4.0',
     description=('Curses Omni Media Player'),
     long_description=long_description,
     url='https://github.com/McSinyx/comp',
