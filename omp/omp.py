@@ -112,23 +112,23 @@ class Omp(object):
             pass
 
     def add(self, name, value=1):
-        """Wrap a try clause around mp._add_property."""
+        """Wrap a try clause around mp.property_add."""
         try:
-            self.mp._add_property(name, value)
+            self.mp.property_add(name, value)
         except:
             pass
 
     def cycle(self, name, direction='up'):
-        """Wrap a try clause around mp._cycle_property."""
+        """Wrap a try clause around mp.cycle."""
         try:
-            self.mp._cycle_property(name, direction='up')
+            self.mp.cycle(name, direction='up')
         except:
             pass
 
     def multiply(self, name, factor):
-        """Wrap a try clause around mp._multiply_property."""
+        """Wrap a try clause around mp.property_multiply."""
         try:
-            self.mp._multiply_property(name, factor)
+            self.mp.property_multiply(name, factor)
         except:
             pass
 

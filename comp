@@ -67,7 +67,8 @@ class Comp(Omp):
         playing (int): index of playing track in played
         playlist (iterator): iterator of tracks according to mode
         reading (bool): flag show if user input is being read
-        search_res (iterator):  title-searched results
+        search_res (iterator): title-searched results
+        search_str (str): regex search string
         scr (curses WindowObject): curses window object
         start (int): index of the first track to be printed on screen
         vid (str): flag show if video output is enabled
@@ -79,7 +80,8 @@ class Comp(Omp):
         self.playing, self.start, self.y = -1, 0, 1
         self.json_file, self.mode, self.vid = json_file, mode, mpv_vid
         self.entries, self.played = entries, []
-        self.playlist, self.search_res = iter(()), deque()
+        self.playlist = iter(())
+        self.search_res, self.search_str = deque(), ''
         self.mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
                       ytdl=True, ytdl_format=ytdlf)
         self.scr = curses.initscr()
@@ -268,24 +270,22 @@ class Comp(Omp):
 
     def search(self, backward=False):
         """Prompt then search for a pattern."""
-        p = re.compile(self.read_input('/'), re.IGNORECASE)
-        entries = deque(self.entries)
-        entries.rotate(-self.idx())
-        self.search_res = deque(filter(
-            lambda entry: p.search(entry['title']) is not None, entries))
-        if backward: self.search_res.reverse()
-        if self.search_res:
-            self.move(self.idx(self.search_res[0]) - self.idx())
+        s = self.read_input(_("Search {}ward [{{}}]: ".format(
+            'back' if backward else 'for')).format(self.search_str))
+        if s:
+            self.search_str, p = s, re.compile(s, re.IGNORECASE)
+            entries = deque(self.entries)
+            entries.rotate(-self.idx())
+            self.search_res = deque(filter(
+                lambda entry: p.search(entry['title']) is not None, entries))
+            if backward: self.search_res.rotate()
         else:
-            self.print_msg(_("Pattern not found"), error=True)
-
-    def next_search(self, backward=False):
-        """Repeat previous search."""
-        if self.search_res:
             self.search_res.rotate(1 if backward else -1)
+
+        if self.search_res:
             self.move(self.idx(self.search_res[0]) - self.idx())
         else:
-            self.print_msg(_("Pattern not found"), error=True)
+            self.print_msg(_('"{}" not found').format(self.search_str), True)
 
     def resize(self):
         curses.update_lines_cols()
@@ -413,7 +413,7 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
         elif c in ('*', '0'):
             comp.add('volume', 2)
         elif c == 'm':
-            comp.mp.mute ^= True    # hack to toggle bool value
+            comp.cycle('mute')
         elif c == '1':
             comp.add('contrast', -1)
         elif c == '2':
@@ -473,7 +473,7 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
         elif c == 'l':
             comp.mp.command('ab-loop')
 
-        # Basic movements
+        # Emacs movements
         elif c == ctrl('p'):
             comp.move(-1)
         elif c == ctrl('n'):
@@ -487,9 +487,9 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
         elif c in (ctrl('>'), curses.KEY_END):
             comp.move(len(comp.entries))
 
-        elif c == '/':
+        elif c == ctrl('f'):
             comp.search()
-        elif c == '?':
+        elif c == alt('f'):
             comp.search(backward=True)
         elif c == 'D':
             comp.entries.pop(comp.idx())
@@ -501,8 +501,6 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
         elif c == 'M':
             comp.mode = MODES[(MODES.index(comp.mode) - 1) % 8]
             comp.update_status()
-        elif c == 'N':
-            comp.next_search(backward=True)
         elif c == 'V':
             comp.vid = 'auto' if comp.vid == 'no' else 'no'
             comp.mp.vid = comp.vid
@@ -528,8 +526,6 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
         elif c == 'm':
             comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
-        elif c == 'n':
-            comp.next_search()
         elif c == 'o':
             extractor = comp.read_input(_("Playlist extractor: "))
             filename = comp.read_input(_("Open: "))
