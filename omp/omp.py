@@ -51,7 +51,6 @@ class Omp(object):
         playing (int): index of playing track in played
         playlist (iterator): iterator of tracks according to mode
         search_res (iterator):  title-searched results
-        vid (str): flag show if video output is enabled
 
     I/O handlers (defined by front-end):
         print_msg(message, error=False): print a message
@@ -59,18 +58,18 @@ class Omp(object):
         read_input(prompt): prompt for user input
         refresh(): update interface content
     """
-    def __new__(cls, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
+    def __new__(cls, entries, json_file, mode, mpv_vo, ytdlf):
         self = super(Comp, cls).__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing = -1
-        self.json_file, self.mode, self.vid = json_file, mode, mpv_vid
+        self.json_file, self.mode = json_file
         self.entries, self.played = entries, []
         self.playlist, self.search_res = iter(()), deque()
         self.mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
                       ytdl=True, ytdl_format=ytdlf)
         return self
 
-    def __init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
+    def __init__(self, entries, json_file, mode, mpv_vo, ytdlf):
         if mpv_vo is not None: self.mp['vo'] = mpv_vo
         @self.mp.property_observer('mute')
         @self.mp.property_observer('pause')

@@ -67,21 +67,18 @@ class Comp(Omp):
         playing (int): index of playing track in played
         playlist (iterator): iterator of tracks according to mode
         reading (bool): flag show if user input is being read
-        search_res (iterator): title-searched results
         search_str (str): regex search string
         scr (curses WindowObject): curses window object
         start (int): index of the first track to be printed on screen
-        vid (str): flag show if video output is enabled
         y (int): the current y-coordinate
     """
-    def __new__(cls, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
+    def __new__(cls, entries, json_file, mode, mpv_vo, ytdlf):
         self = object.__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing, self.start, self.y = -1, 0, 1
-        self.json_file, self.mode, self.vid = json_file, mode, mpv_vid
+        self.json_file, self.mode = json_file, mode
         self.entries, self.played = entries, []
-        self.playlist = iter(())
-        self.search_res, self.search_str = deque(), ''
+        self.playlist, self.search_str = iter(()), ''
         self.mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
                       ytdl=True, ytdl_format=ytdlf)
         self.scr = curses.initscr()
@@ -106,8 +103,8 @@ class Comp(Omp):
         if self.mp.osd.duration is not None:
             self.played[self.playing]['duration'] = self.mp.osd.duration
         add_status_str(':', X=5, lpad=3)
-        if self.vid != 'no': add_status_str('V', x=1, X=2)
-        if not self.mp.mute: add_status_str('A', X=1)
+        if self.mp.video: add_status_str('V', x=1, X=2)
+        if self.mp.audio: add_status_str('A', X=1)
         add_status_str(self.mp.osd.time_pos or '00:00:00', x=4, X=12)
         add_status_str('/', x=13, X=14)
         add_status_str(self.mp.osd.duration or '00:00:00', x=15, X=23)
@@ -133,7 +130,6 @@ class Comp(Omp):
         def mpv_play(entry, force):
             self.setno('playing')
             entry['playing'] = True
-            self.mp.vid = self.vid
             try:
                 self.mp.play(entry['filename'])
             except:
@@ -201,7 +197,7 @@ class Comp(Omp):
 
     def property_handler(self, name, val): self.update_status()
 
-    def __init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf):
+    def __init__(self, entries, json_file, mode, mpv_vo, ytdlf):
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -211,7 +207,7 @@ class Comp(Omp):
         for i in range(1, 8): curses.init_pair(i, i, -1)
         curses.init_pair(8, -1, 7)
         for i in range(1, 7): curses.init_pair(i + 8, -1, i)
-        Omp.__init__(self, entries, json_file, mode, mpv_vid, mpv_vo, ytdlf)
+        Omp.__init__(self, entries, json_file, mode, mpv_vo, ytdlf)
         self.refresh()
 
     def __enter__(self): return self
@@ -272,20 +268,19 @@ class Comp(Omp):
         """Prompt then search for a pattern."""
         s = self.read_input(_("Search {}ward [{{}}]: ".format(
             'back' if backward else 'for')).format(self.search_str))
-        if s:
-            self.search_str, p = s, re.compile(s, re.IGNORECASE)
-            entries = deque(self.entries)
+        if s: self.search_str = s
+        pattern = re.compile(self.search_str, re.IGNORECASE)
+        entries = deque(self.entries)
+        if backward:
             entries.rotate(-self.idx())
-            self.search_res = deque(filter(
-                lambda entry: p.search(entry['title']) is not None, entries))
-            if backward: self.search_res.rotate()
+            entries.reverse()
         else:
-            self.search_res.rotate(1 if backward else -1)
-
-        if self.search_res:
-            self.move(self.idx(self.search_res[0]) - self.idx())
-        else:
-            self.print_msg(_('"{}" not found').format(self.search_str), True)
+            entries.rotate(-self.idx() - 1)
+        for entry in entries:
+            if pattern.search(entry['title']) is not None:
+                self.move(self.idx(entry) - self.idx())
+                return
+        self.print_msg(_("'{}' not found").format(self.search_str), error=True)
 
     def resize(self):
         curses.update_lines_cols()
@@ -327,9 +322,6 @@ parser.add_argument('-e', '--extractor', default='youtube-dl',
 parser.add_argument('playlist', help='path or URL to the playlist')
 parser.add_argument('-c', '--config', default=USER_CONFIG, required=False,
                     help='path to the configuration file')
-parser.add_argument('--vid', required=False,
-                    help='initial video channel. auto selects the default, no\
-                          disables video')
 parser.add_argument('--vo', required=False, metavar='DRIVER',
                     help='specify the video output backend to be used. See\
                           VIDEO OUTPUT DRIVERS in mpv(1) for details and\
@@ -344,12 +336,11 @@ if entries is None:
 json_file = args.playlist if args.extractor == 'json' else ''
 config = ConfigParser()
 config.read(args.config)
-vid = args.vid or config.get('mpv', 'video', fallback='auto')
 vo = args.vo or config.get('mpv', 'video-output', fallback=None)
 mode = config.get('comp', 'play-mode', fallback='play-current')
 ytdlf = args.format or config.get('youtube-dl', 'format', fallback='best')
 
-with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
+with Comp(entries, json_file, mode, vo, ytdlf) as comp:
     c = comp.scr.get_wch()
     while c != 'q':
         # mpv keybindings
@@ -398,6 +389,8 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
         elif c == '\n':     # curses.KEY_ENTER doesn't work
             comp.update_playlist()
             comp.next(force=True)
+        elif c == 'O':
+            comp.mp.command('cycle-values', 'osd-level', 3, 1)
         elif c in ('o', 'P'):
             comp.mp.show_progress()
         elif c == 'z':
@@ -446,6 +439,8 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             comp.cycle('sub-visibility')
         elif c == 'V':
             comp.cycle('sub-ass-vsfilter-aspect-compat')
+        elif c == 'u':
+            comp.mp.command('cycle-values', 'sub-ass-override', 'force', 'no')
         elif c == 'j':
             comp.cycle('sub', 'up')
         elif c == 'J':
@@ -468,12 +463,17 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             comp.add('panscan', -0.1)
         elif c == 'e':
             comp.add('panscan', 0.1)
+        elif c == 'A':
+            comp.mp.command('cycle-values', 'video-aspect',
+                            '16:9', '4:3', '2.35:1', '-1')
         elif c == 'E':
             comp.cycle('edition')
         elif c == 'l':
             comp.mp.command('ab-loop')
+        elif c == 'L':
+            comp.mp.command('cycle-values', 'loop-file', 'inf', 'no')
 
-        # Emacs movements
+        # Emacs keybindings
         elif c == ctrl('p'):
             comp.move(-1)
         elif c == ctrl('n'):
@@ -486,31 +486,21 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
             comp.move(-len(comp.entries))
         elif c in (ctrl('>'), curses.KEY_END):
             comp.move(len(comp.entries))
-
-        elif c == ctrl('f'):
-            comp.search()
-        elif c == alt('f'):
-            comp.search(backward=True)
-        elif c == 'D':
-            comp.entries.pop(comp.idx())
-            if 1 < len(comp.entries) - curses.LINES + 4 == comp.start:
-                comp.start -= 1
-            elif comp.idx() == len(comp.entries):
-                comp.y -= 1
-            comp.refresh()
-        elif c == 'M':
-            comp.mode = MODES[(MODES.index(comp.mode) - 1) % 8]
-            comp.update_status()
-        elif c == 'V':
-            comp.vid = 'auto' if comp.vid == 'no' else 'no'
-            comp.mp.vid = comp.vid
-            comp.update_status()
-        elif c == 'W':
-            comp.dump_json()
-        elif c == 'd':
+        elif c == ctrl(' '):
             comp.current()['selected'] = not comp.current().get('selected')
             comp.move(1)
-        elif c == 'i':
+
+        elif c == ctrl('o'):
+            extractor = comp.read_input(_("Playlist extractor: "))
+            filename = comp.read_input(_("Open: "))
+            entries = extract_info(filename, extractor)
+            if entries is None:
+                comp.print_msg(
+                    _("'{}': Can't extract playlist").format(filename))
+            else:
+                comp.entries, comp.start, comp.y = entries, 0, 1
+                comp.refresh()
+        elif c == ctrl('i'):
             extractor = comp.read_input(_("Playlist extractor: "))
             filename = comp.read_input(_("Insert: "))
             entries = extract_info(filename, extractor)
@@ -523,19 +513,25 @@ with Comp(entries, json_file, mode, vid, vo, ytdlf) as comp:
                 comp.entries.extend(entries)
                 comp.entries.extend(bottom)
                 comp.refresh()
-        elif c == 'm':
+        elif c == ctrl('f'):
+            comp.search()
+        elif c == alt('f'):
+            comp.search(backward=True)
+        elif c == ctrl('m'):
             comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
-        elif c == 'o':
-            extractor = comp.read_input(_("Playlist extractor: "))
-            filename = comp.read_input(_("Open: "))
-            entries = extract_info(filename, extractor)
-            if entries is None:
-                comp.print_msg(
-                    _("'{}': Can't extract playlist").format(filename))
-            else:
-                comp.entries, comp.start, comp.y = entries, 0, 1
-                comp.refresh()
+        elif c == alt('m'):
+            comp.mode = MODES[(MODES.index(comp.mode) - 1) % 8]
+            comp.update_status()
+        elif c == curses.KEY_DC:
+            comp.entries.pop(comp.idx())
+            if 1 < len(comp.entries) - curses.LINES + 4 == comp.start:
+                comp.start -= 1
+            elif comp.idx() == len(comp.entries):
+                comp.y -= 1
+            comp.refresh()
+        elif c == 'W':
+            comp.dump_json()
         elif c in (curses.KEY_F5, curses.KEY_RESIZE):
             comp.resize()
         c = comp.scr.get_wch()
