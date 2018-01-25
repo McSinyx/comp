@@ -517,11 +517,8 @@ with Comp(entries, json_file, mode, vo, ytdlf) as comp:
             comp.search()
         elif c == alt('f'):
             comp.search(backward=True)
-        elif c == ctrl('m'):
-            comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
-            comp.update_status()
         elif c == alt('m'):
-            comp.mode = MODES[(MODES.index(comp.mode) - 1) % 8]
+            comp.mode = MODES[(MODES.index(comp.mode) + 1) % 8]
             comp.update_status()
         elif c == curses.KEY_DC:
             comp.entries.pop(comp.idx())
@@ -534,4 +531,9 @@ with Comp(entries, json_file, mode, vo, ytdlf) as comp:
             comp.dump_json()
         elif c in (curses.KEY_F5, curses.KEY_RESIZE):
             comp.resize()
+        elif c == ':':
+            try:
+                comp.mp.command(*comp.read_input(':').split())
+            except:
+                comp.print_msg(_("Failed to execute command"), error=True)
         c = comp.scr.get_wch()

@@ -73,74 +73,190 @@ Open a Youtube playlist with video height lower than 720::
 Keyboard control
 ----------------
 
+Bindings inherited from mpv
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For convenience purpose, I try to mimic **mpv** default keybindings, but many
+are slightly different from **mpv** exact behaviour (mainly because of the lack
+of keys which are unsupported by ``curses``). So I will list all of them here
+for you to `compare <https://github.com/mpv-player/mpv/blob/master/DOCS/man/mpv.rst#keyboard-control>`_:
+
+Left and Right
+   Seek backward/forward 5 seconds. Shifted arrow does a 1 second seek.
+
+Up and Down
+   Seek backward/forward 1 minute.
+
+``[`` and ``]``
+   Decrease/increase current playback speed by 10%.
+
+``{`` and ``}``
+   Halve/double current playback speed.
+
+Backspace
+   Reset playback speed to normal.
+
+``<`` and ``>``
+   Go backward/forward in the playlist.
+
 Return
    Start playing.
 
-Space, ``p``
-   Toggle pause.
+Space / ``p``
+   Pause (pressing again unpauses).
 
-``/``, ``?``
-   Search forward/backward for a pattern.
+``.``
+   Step forward. Pressing once will pause, every consecutive press will play
+   one frame and then go into pause mode again.
 
-``<``, ``>``
-   Go backward/forward in the playlist.
+``,``
+   Step backward. Pressing once will pause, every consecutive press will play
+   one frame in reverse and then go into pause mode again.
 
-``A``
-   Toggle mute.
+``q``
+   Stop playing and quit.
 
-``D``
-   Delete the current entry.
+``/`` / ``9`` and ``*`` / ``0``
+   Decrease/increase volume.
 
-``N``
-   Repeat previous search in reverse direction.
+``m``
+   Mute sound.
+
+``_``
+   Cycle through the available video tracks.
+
+``#``
+   Cycle through the available audio tracks.
+
+``f``
+   Toggle fullscreen.
+
+``T``
+   Toggle stay-on-top.
+
+``w`` and ``e``
+   Decrease/increase pan-and-scan range.
+
+``o`` / ``P``
+   Show progression bar, elapsed time and total duration on the OSD.
+
+``O``
+   Toggle OSD states between normal and playback time/duration.
+
+``v``
+   Toggle subtitle visibility.
+
+``j`` and ``J``
+   Cycle through the available subtitles.
+
+``x`` and ``z``
+   Adjust subtitle delay by +/- 0.1 seconds.
+
+``l``
+   Set/clear A-B loop points.
+
+``L``
+   Toggle infinite looping.
+
+Ctrl-``+`` and Ctrl-``-``
+   Adjust audio delay (A/V sync) by +/- 0.1 seconds.
+
+``u``
+   Switch between applying no style overrides to SSA/ASS subtitles, and
+   overriding them almost completely with the normal subtitle style.
 
 ``V``
-   Toggle video.
+   Toggle subtitle VSFilter aspect compatibility mode.
+
+``r`` and ``t``
+   Move subtitles up/down.
+
+``s``
+   Take a screenshot.
+
+``S``
+   Take a screenshot, without subtitles.
+
+Alt-``s``
+   Take a screenshot each frame.
+
+Page Up and Page Down
+   Seek to the beginning of the previous/next chapter.
+
+``d``
+   Activate/deactivate deinterlacer.
+
+``A``
+   Cycle aspect ratio override.
+
+``1`` and ``2``
+   Adjust contrast.
+
+``3`` and ``4``
+   Adjust brightness.
+
+``5`` and ``6``
+   Adjust gamma.
+
+``7`` and ``8``
+   Adjust saturation.
+
+Alt-``0``
+   Resize video window to half its original size.
+
+Alt-``1``
+   Resize video window to its original size.
+
+Alt-``2``
+   Resize video window to double its original size.
+
+``E``
+   Cycle through editions.
+
+Movements and selections
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following keybindings are Emacs-like since most characters are taken by
+**mpv**.
+
+Ctrl-``p`` and Ctrl-``n``
+   Move a single line up/down.
+
+Alt-``v`` and Ctrl-``v``
+   Move a single page up/down.
+
+Home / Ctrl-``<`` and End / Ctrl-``>``
+   Move to the beginning/end of the playlist.
+
+Ctrl-Space
+   Deselect/reselect the current entry and move down a line.
+
+Playlist manipulation
+^^^^^^^^^^^^^^^^^^^^^
+
+Ctrl-``o``
+   Open playlist.
+
+Ctrl-``i``
+   Insert playlist.
+
+Ctrl-``f`` and Alt-``f``
+   Search forward/backward for a pattern.
+
+Alt-``m``
+   Cycle through playing modes.
+
+Delete
+   Delete the current entry.
 
 ``W``
    Save the current playlist under JSON format.
 
-``d``
-   Deselect/reselect the current entry.
-
-``i``
-   Insert playlist.
-
-``m``, ``M``
-   Cycle forward/backward through playing modes.
-
-``n``
-   Repeat previous search.
-
-``o``
-   Open playlist.
-
-Up, ``k``
-   Move a single line up.
-
-Down, ``j``
-   Move a single line down.
-
-Left, ``h``
-   Seek backward 5 seconds.
-
-Right, ``l``
-   Seek forward 5 seconds.
-
-Home
-   Move to the beginning of the playlist.
-
-End
-   Move to the end of the playlist.
-
-Page Up
-   Move a single page up.
-
-Page Down
-   Move a single page down.
-
 F5
    Redraw the screen content.
+
+``:``
+   Execute a **mpv** command.
 
 Configuration files
 -------------------
