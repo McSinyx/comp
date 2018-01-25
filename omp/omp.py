@@ -62,7 +62,7 @@ class Omp(object):
         self = super(Comp, cls).__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing = -1
-        self.json_file, self.mode = json_file
+        self.json_file, self.mode = json_file, mode
         self.entries, self.played = entries, []
         self.playlist, self.search_res = iter(()), deque()
         self.mp = MPV(input_default_bindings=True, input_vo_keyboard=True,
@@ -78,6 +78,41 @@ class Omp(object):
         self.mp.register_key_binding('q', lambda state, key: None)
 
     def __enter__(self): return self
+
+    def seek(self, amount, reference='relative', precision='default-precise'):
+        """Wrap a try clause around mp.seek to avoid crashing when
+        nothing is being played.
+        """
+        try:
+            self.mp.seek(amount, reference, precision)
+        except:
+            self.print_msg(_("Failed to seek"), error=True)
+
+    def add(self, name, value=1):
+        """Wrap a try clause around mp.property_add."""
+        try:
+            self.mp.property_add(name, value)
+        except:
+            self.print_msg(
+                _("Failed to add {} to '{}'").format(value, name), error=True)
+
+    def multiply(self, name, factor):
+        """Wrap a try clause around mp.property_multiply."""
+        try:
+            self.mp.property_multiply(name, factor)
+        except:
+            self.print_msg(
+                _("Failed to multiply '{}' with {}").format(name, value),
+                error=True)
+
+    def cycle(self, name, direction='up'):
+        """Wrap a try clause around mp.cycle."""
+        try:
+            self.mp.cycle(name, direction='up')
+        except:
+            self.print_msg(
+                _("Failed to cycle {} '{}'").format(direction, name),
+                error=True)
 
     def update_play_list(self, pick):
         """Update the list of entries to be played."""
@@ -101,42 +136,12 @@ class Omp(object):
             self.playlist = iter(lambda: choice(self.play_list), None)
         if self.playing < -1: self.played = self.played[:self.playing+1]
 
-    def seek(self, amount, reference='relative', precision='default-precise'):
-        """Wrap a try clause around mp.seek to avoid crashing when
-        nothing is being played.
-        """
-        try:
-            self.mp.seek(amount, reference, precision)
-        except:
-            pass
-
-    def add(self, name, value=1):
-        """Wrap a try clause around mp.property_add."""
-        try:
-            self.mp.property_add(name, value)
-        except:
-            pass
-
-    def cycle(self, name, direction='up'):
-        """Wrap a try clause around mp.cycle."""
-        try:
-            self.mp.cycle(name, direction='up')
-        except:
-            pass
-
-    def multiply(self, name, factor):
-        """Wrap a try clause around mp.property_multiply."""
-        try:
-            self.mp.property_multiply(name, factor)
-        except:
-            pass
-
     def next(self, force=False, backward=False):
         self.play_backward = backward
         if self.mp.idle_active:
             self.play(force)
         else:
-            self.seek(100, 'absolute-percent')
+            self.mp.time_pos = self.mp.duration
             if force: self.mp.pause = False
 
     def search(self, backward=False):
