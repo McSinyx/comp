@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tutf8 comp.1
 .\"
-.TH COMP 1 2017-06-17 comp
+.TH COMP 1 2018-01-25 comp
 .SH NAME
 comp \- Curses Omni Media Player
 .SH SYNOPSIS
@@ -11,8 +11,10 @@ comp \- Curses Omni Media Player
 .SH DESCRIPTION
 \fBcomp\fR is a 
 .BR mpv (1)
-front-end using curses. It has basic media player functions and can to extract
-playlists from multiple sources such as media sites supported by
+front-end using
+.BR curses (3).
+It has basic media player functions and can to extract playlists from multiple
+sources such as media sites supported by
 .BR youtube-dl (1),
 local and direct URL to video/audio and its own JSON playlist format.
 .SH OPTIONS
@@ -47,75 +49,192 @@ for details and descriptions of available drivers
 .B -f \fIYTDL_FORMAT\fR, \fB--format \fIYTDL_FORMAT
 video format/quality to be passed to youtube-dl
 .SH KEYBOARD CONTROL
+.SS Bindings inherited from mpv
+For convenience purpose, I try to mimic 
+.BR mpv (1)
+default keybindings, but many are slightly different from
+.BR mpv (1)
+exact behaviour (mainly because of the lack of keys which are unsupported by
+.BR curses (3)).
+So I will list all of them here for you to compare:
+.TP
+.B Left and Right
+Seek backward/forward 5 seconds. Shifted arrow does a 1 second seek.
+.TP
+.B Up and Down
+Seek backward/forward 1 minute.
+.TP
+.B [ and ]
+Decrease/increase current playback speed by 10%.
+.TP
+.B { and }
+Halve/double current playback speed.
+.TP
+.B Backspace
+Reset playback speed to normal.
+.TP
+.B < and >
+Go backward/forward in the playlist.
 .TP
 .B Return
 Start playing.
 .TP
-.B Space, p
-Toggle pause.
+.B Space / p
+Pause (pressing again unpauses).
 .TP
-.B /, ?
-Search forward/backward for a pattern.
+.B .
+Step forward. Pressing once will pause, every consecutive press will play
+one frame and then go into pause mode again.
 .TP
-.B <, >
-Go backward/forward in the playlist.
+.B ,
+Step backward. Pressing once will pause, every consecutive press will play
+one frame in reverse and then go into pause mode again.
 .TP
-.B A
-Toggle mute.
+.B q
+Stop playing and quit.
 .TP
-.B D
-Delete the current entry.
+.B / and *
+Decrease/increase volume.
 .TP
-.B N
-Repeat previous search in reverse direction.
+.B 9 and 0
+Decrease/increase volume.
+.TP
+.B m
+Mute sound.
+.TP
+.B _
+Cycle through the available video tracks.
+.TP
+.B #
+Cycle through the available audio tracks.
+.TP
+.B f
+Toggle fullscreen.
+.TP
+.B T
+Toggle stay-on-top.
+.TP
+.B w and e
+Decrease/increase pan-and-scan range.
+.TP
+.B o or P
+Show progression bar, elapsed time and total duration on the OSD.
+.TP
+.B O
+Toggle OSD states between normal and playback time/duration.
+.TP
+.B v
+Toggle subtitle visibility.
+.TP
+.B j and J
+Cycle through the available subtitles.
+.TP
+.B x and z
+Adjust subtitle delay by +/- 0.1 seconds.
+.TP
+.B l
+Set/clear A-B loop points.
+.TP
+.B L
+Toggle infinite looping.
+.TP
+.B Ctrl-+ and Ctrl--
+Adjust audio delay (A/V sync) by +/- 0.1 seconds.
+.TP
+.B u
+Switch between applying no style overrides to SSA/ASS subtitles, and
+overriding them almost completely with the normal subtitle style.
 .TP
 .B V
-Toggle video.
+Toggle subtitle VSFilter aspect compatibility mode.
+.TP
+.B r and t
+Move subtitles up/down.
+.TP
+.B s
+Take a screenshot.
+.TP
+.B S
+Take a screenshot, without subtitles.
+.TP
+.B Alt-s
+Take a screenshot each frame.
+.TP
+.B Page Up and Page Down
+Seek to the beginning of the previous/next chapter.
+.TP
+.B d
+Activate/deactivate deinterlacer.
+.TP
+.B A
+Cycle aspect ratio override.
+.TP
+.B 1 and 2
+Adjust contrast.
+.TP
+.B 3 and 4
+Adjust brightness.
+.TP
+.B 5 and 6
+Adjust gamma.
+.TP
+.B 7 and 8
+Adjust saturation.
+.TP
+.B Alt-0
+Resize video window to half its original size.
+.TP
+.B Alt-1
+Resize video window to its original size.
+.TP
+.B Alt-2
+Resize video window to double its original size.
+.TP
+.B E
+Cycle through editions.
+.SS Movements and selections
+The following keybindings are Emacs-like since most characters are taken by
+.BR mpv (1).
+.TP
+.B Ctrl-p and Ctrl-n
+Move a single line up/down.
+.TP
+.B Alt-v and Ctrl-v
+Move a single page up/down.
+.TP
+.B Ctrl-< and Ctrl->
+Move to the beginning/end of the playlist.
+.TP
+.B Home and End
+Move to the beginning/end of the playlist.
+.TP
+.B Ctrl-Space
+Deselect/reselect the current entry and move down a line.
+.SS Playlist manipulation
+.TP
+.B Ctrl-o
+Open playlist.
+.TP
+.B Ctrl-i
+Insert playlist.
+.TP
+.B Ctrl-f and Alt-f
+Search forward/backward for a pattern.
+.TP
+.B Alt-m
+Cycle through playing modes.
+.TP
+.B Delete
+Delete the current entry.
 .TP
 .B W
 Save the current playlist under JSON format.
 .TP
-.B d
-Deselect/reselect the current entry.
-.TP
-.B i
-Insert playlist.
-.TP
-.B m, M
-Cycle forward/backward through playing modes.
-.TP
-.B n
-Repeat previous search.
-.TP
-.B o
-Open playlist.
-.TP
-.B Up, k
-Move a single line up.
-.TP
-.B Down, j
-Move a single line down.
-.TP
-.B Left, h
-Seek backward 5 seconds.
-.TP
-.B Right, l
-Seek forward 5 seconds.
-.TP
-.B Home
-Move to the beginning of the playlist.
-.TP
-.B End
-Move to the end of the playlist.
-.TP
-.B Page Up
-Move a single page up.
-.TP
-.B Page Down
-Move a single page down.
-.TP
 .B F5
 Redraw the screen content.
+.TP
+.B :
+Execute a mpv command.
 .SH FILES
 .TP
 .I ~/.config/comp/settings.ini
