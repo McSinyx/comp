@@ -272,11 +272,15 @@ are listed below::
    play-mode = play-current
 
    [mpv]
-   # Initial video channel. auto selects the default, no disables video.
-   video = auto
-   # Specify the video output backend to be used. See VIDEO OUTPUT DRIVERS in
-   # mpv(1) man page for details and descriptions of available drivers.
-   video-output =
+   # Options to be parsed to mpv. See OPTIONS section on mpv(1) man pages for
+   # its complete list of available options.
+   # For example:
+   #vo = xv
+   #ontop = yes
+   #border = no
+   #force-window = yes
+   #autofit = 500x280
+   #geometry = -15-50
 
    [youtube-dl]
    # Video format/quality to be passed to youtube-dl. See FORMAT SELECTION in

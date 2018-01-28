@@ -16,6 +16,8 @@
 #
 # Copyright (C) 2017  Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 
+__version__ = '0.4.3'
+
 import curses
 import json
 import re
@@ -28,6 +30,7 @@ from gettext import bindtextdomain, gettext as _, textdomain
 from os import makedirs
 from os.path import abspath, dirname, expanduser, expandvars
 from threading import Thread
+from traceback import print_exception
 
 from mpv import MPV
 from pkg_resources import resource_filename
@@ -72,7 +75,7 @@ class Comp(Omp):
         start (int): index of the first track to be printed on screen
         y (int): the current y-coordinate
     """
-    def __new__(cls, entries, json_file, mode, mpv_vo, ytdlf):
+    def __new__(cls, entries, json_file, mode, mpv_args, ytdlf):
         self = object.__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing, self.start, self.y = -1, 0, 1
@@ -115,6 +118,7 @@ class Comp(Omp):
         self.scr.refresh()
 
     def print_msg(self, message, error=False):
+        """Print the given message, in red is it's an error."""
         attributes = curses.color_pair(1) if error else curses.A_NORMAL
         self.adds(message, curses.LINES-1, attr=attributes, lpad=0)
         self.scr.refresh()
@@ -197,7 +201,7 @@ class Comp(Omp):
 
     def property_handler(self, name, val): self.update_status()
 
-    def __init__(self, entries, json_file, mode, mpv_vo, ytdlf):
+    def __init__(self, entries, json_file, mode, mpv_args, ytdlf):
         curses.noecho()
         curses.cbreak()
         self.scr.keypad(True)
@@ -207,7 +211,7 @@ class Comp(Omp):
         for i in range(1, 8): curses.init_pair(i, i, -1)
         curses.init_pair(8, -1, 7)
         for i in range(1, 7): curses.init_pair(i + 8, -1, i)
-        Omp.__init__(self, entries, json_file, mode, mpv_vo, ytdlf)
+        Omp.__init__(self, entries, json_file, mode, mpv_args, ytdlf)
         self.refresh()
 
     def __enter__(self): return self
@@ -311,11 +315,13 @@ class Comp(Omp):
         curses.echo()
         curses.endwin()
         Omp.__exit__(self, exc_type, exc_value, traceback)
+        if exc_value is not None:
+            print_exception(exc_type, exc_value, traceback)
 
 
 parser = ArgumentParser(description='Curses Omni Media Player')
 parser.add_argument('-v', '--version', action='version',
-                    version='%(prog)s 0.3.11')
+                    version='%(prog)s {}'.format(__version__))
 parser.add_argument('-e', '--extractor', default='youtube-dl',
                     choices=('json', 'mpv', 'youtube-dl'), required=False,
                     help='playlist extractor, default is youtube-dl')
@@ -336,11 +342,12 @@ if entries is None:
 json_file = args.playlist if args.extractor == 'json' else ''
 config = ConfigParser()
 config.read(args.config)
-vo = args.vo or config.get('mpv', 'video-output', fallback=None)
 mode = config.get('comp', 'play-mode', fallback='play-current')
+mpv_args = dict(config['mpv'])
+if args.vo is not None: mpv_args['vo'] = args.vo
 ytdlf = args.format or config.get('youtube-dl', 'format', fallback='best')
 
-with Comp(entries, json_file, mode, vo, ytdlf) as comp:
+with Comp(entries, json_file, mode, mpv_args, ytdlf) as comp:
     c = comp.scr.get_wch()
     while c != 'q':
         # mpv keybindings

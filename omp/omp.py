@@ -23,6 +23,7 @@ from itertools import cycle
 from os import makedirs
 from os.path import abspath, dirname, expanduser, expandvars, isfile
 from random import choice
+from sys import exc_info
 from time import gmtime, sleep, strftime
 from urllib import request
 
@@ -58,7 +59,7 @@ class Omp(object):
         read_input(prompt): prompt for user input
         refresh(): update interface content
     """
-    def __new__(cls, entries, json_file, mode, mpv_vo, ytdlf):
+    def __new__(cls, entries, json_file, mode, mpv_args, ytdlf):
         self = super(Comp, cls).__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing = -1
@@ -69,8 +70,12 @@ class Omp(object):
                       ytdl=True, ytdl_format=ytdlf)
         return self
 
-    def __init__(self, entries, json_file, mode, mpv_vo, ytdlf):
-        if mpv_vo is not None: self.mp['vo'] = mpv_vo
+    def __init__(self, entries, json_file, mode, mpv_args, ytdlf):
+        for arg, val in mpv_args.items():
+            try:
+                self.mp[arg] = val
+            except:
+                self.__exit__(*exc_info())
         @self.mp.property_observer('mute')
         @self.mp.property_observer('pause')
         @self.mp.property_observer('time-pos')
