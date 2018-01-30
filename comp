@@ -16,7 +16,7 @@
 #
 # Copyright (C) 2017  Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 
-__version__ = '0.4.3'
+__version__ = '0.4.4'
 
 import curses
 import json
@@ -343,7 +343,7 @@ json_file = args.playlist if args.extractor == 'json' else ''
 config = ConfigParser()
 config.read(args.config)
 mode = config.get('comp', 'play-mode', fallback='play-current')
-mpv_args = dict(config['mpv'])
+mpv_args = dict(config['mpv']) if 'mpv' in config else {}
 if args.vo is not None: mpv_args['vo'] = args.vo
 ytdlf = args.format or config.get('youtube-dl', 'format', fallback='best')
 
