@@ -16,7 +16,7 @@
 #
 # Copyright (C) 2017  Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 
-__version__ = '0.4.4'
+__version__ = '0.4.5'
 
 import curses
 import json
@@ -127,8 +127,7 @@ class Comp(Omp):
     def setno(self, *keys):
         """Set all keys of each entry in entries to False."""
         for entry in self.entries:
-            for key in keys:
-                entry[key] = False
+            for key in keys: entry[key] = False
 
     def play(self, force=False):
         """Play the next track."""
@@ -216,19 +215,6 @@ class Comp(Omp):
         self.refresh()
 
     def __enter__(self): return self
-
-    def idx(self, entry=None):
-        """Return the index of the current entry."""
-        if entry is None:
-            return self.start + self.y - 1
-        return self.entries.index(entry)
-
-    def current(self):
-        """Return the current entry."""
-        try:
-            return self.entries[self.idx()]
-        except:
-            return {}
 
     def read_input(self, prompt):
         """Print the prompt string at the bottom of the screen then read

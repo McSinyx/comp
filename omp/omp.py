@@ -17,6 +17,7 @@
 # Copyright (C) 2017  Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 
 import json
+from bisect import bisect_left as bisect
 from collections import deque
 from gettext import bindtextdomain, gettext as _, textdomain
 from itertools import cycle
@@ -36,6 +37,15 @@ from .ie import JSON_KEYS, extract_info
 # Init gettext
 bindtextdomain('omp', resource_filename('omp', 'locale'))
 textdomain('omp')
+
+
+def shuffle_init(a):
+    """Return in iterator which yield random elements from a,
+    and always begin with its first element.
+    """
+    if a:
+        yield a[0]
+        while True: yield choice(a)
 
 
 class Omp(object):
@@ -119,29 +129,48 @@ class Omp(object):
                 _("Failed to cycle {} '{}'").format(direction, name),
                 error=True)
 
-    def update_play_list(self, pick):
-        """Update the list of entries to be played."""
-        if pick == 'current':
-            self.play_list = [self.current()]
-        elif pick == 'all':
-            self.play_list = deque(self.entries)
-            self.play_list.rotate(-self.idx())
-        else:
-            self.play_list = [i for i in self.entries if i.get('selected')]
+    def idx(self, entry=None):
+        """Return the index of the current entry."""
+        if entry is None:
+            return self.start + self.y - 1
+        return self.entries.index(entry)
+
+    def current(self):
+        """Return the current entry."""
+        try:
+            return self.entries[self.idx()]
+        except:
+            return {}
 
     def update_playlist(self):
         """Update the playlist to be used by play function."""
         action, pick = self.mode.split('-')
-        self.update_play_list(pick)
+        if pick == 'current':
+            self.play_list = deque([self.current()])
+        elif pick == 'all':
+            self.play_list = deque(self.entries)
+            self.play_list.rotate(-self.idx())
+        elif pick == 'selected':
+            self.play_list = deque([entry for entry in self.entries
+                                    if entry.get('selected')])
+            indexes = [i for i, entry in enumerate(self.entries)
+                       if entry.get('selected')]
+            idx = indexes[bisect(indexes, self.idx())]
+            self.play_list.rotate(-self.play_list.index(self.entries[idx]))
+
         if action == 'play':
             self.playlist = iter(self.play_list)
         elif action == 'repeat':
             self.playlist = cycle(self.play_list)
-        else:
-            self.playlist = iter(lambda: choice(self.play_list), None)
+        elif action == 'shuffle':
+            self.playlist = shuffle_init(self.play_list)
         if self.playing < -1: self.played = self.played[:self.playing+1]
 
     def next(self, force=False, backward=False):
+        """Go forward/backward in the playlist.
+
+        If forced, this will also unpause the player.
+        """
         self.play_backward = backward
         if self.mp.idle_active:
             self.play(force)
