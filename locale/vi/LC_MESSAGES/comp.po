@@ -1,6 +1,6 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR ORGANIZATION
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Vietnamese translation for Omp front-ends.
+# Copyright (C) 2018 Nguyễn Gia Phong
+# Nguyễn Gia Phong <vn.mcsinyx@gmail.com>, 2018
 #
 msgid ""
 msgstr ""
@@ -49,6 +49,12 @@ msgstr "Tiêu đề"
 
 msgid "Current size: {}x{}. Minimum size: {}x4."
 msgstr "Kích thước hiện tại: {}x{}. Kích thước tối thiểu: {}x4."
+
+msgid "Save playlist? [Y/n]"
+msgstr "Lưu danh sách phát? [C/k]"
+
+msgid "Nn"
+msgstr "Kk"
 
 msgid "Save playlist to [{}]: "
 msgstr "Lưu danh sách phát tại [{}]: "

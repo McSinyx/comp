@@ -31,7 +31,7 @@ from youtube_dl import YoutubeDL
 from pkg_resources import resource_filename
 from mpv import MPV, MpvFormat
 
-from .ie import extract_info
+from .ie import JSON_KEYS, extract_info
 
 # Init gettext
 bindtextdomain('omp', resource_filename('omp', 'locale'))
@@ -171,19 +171,22 @@ class Omp(object):
             self.update_status(_("Pattern not found"), curses.color_pair(1))
 
     def dump_json(self):
+        """Read user input needed to save the playlist."""
         s = self.read_input(
             _("Save playlist to [{}]: ").format(self.json_file))
         self.json_file = abspath(expanduser(expandvars(s or self.json_file)))
+        entries = [{k: v for k, v in entry.items() if k in JSON_KEYS}
+                   for entry in self.entries]
         try:
             makedirs(dirname(self.json_file), exist_ok=True)
+            with open(self.json_file, 'w') as f:
+                json.dump(entries, f, ensure_ascii=False, indent=2,
+                          sort_keys=True)
         except:
             errmsg = _("'{}': Can't open file for writing").format(
                 self.json_file)
             self.print_msg(errmsg, error=True)
         else:
-            with open(self.json_file, 'w') as f:
-                json.dump(self.entries, f, ensure_ascii=False,
-                          indent=2, sort_keys=True)
             self.print_msg(_("'{}' written").format(self.json_file))
 
     def __exit__(self, exc_type, exc_value, traceback):

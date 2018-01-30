@@ -27,6 +27,7 @@ from mpv import MPV
 
 DEFAULT_ENTRY = {'filename': '', 'title': '', 'duration': '00:00:00',
                  'error': False, 'playing': False, 'selected': False}
+JSON_KEYS = 'filename', 'title', 'duration', 'error', 'selected'
 
 
 class YoutubeDLLogger:

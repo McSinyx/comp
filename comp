@@ -93,6 +93,7 @@ class Comp(Omp):
         previously on the display.
         """
         if self.reading: return
+        curses.update_lines_cols()
         y %= curses.LINES
         x %= curses.COLS
         length = X % curses.COLS - x + (y != curses.LINES - 1)
@@ -348,8 +349,9 @@ if args.vo is not None: mpv_args['vo'] = args.vo
 ytdlf = args.format or config.get('youtube-dl', 'format', fallback='best')
 
 with Comp(entries, json_file, mode, mpv_args, ytdlf) as comp:
-    c = comp.scr.get_wch()
-    while c != 'q':
+    while True:
+        c = comp.scr.get_wch()
+        comp.print_msg('')
         # mpv keybindings
         if c == curses.KEY_LEFT:
             comp.seek(-5, precision='exact')
@@ -377,6 +379,10 @@ with Comp(entries, json_file, mode, mpv_args, ytdlf) as comp:
             comp.multiply('speed', 2.0)
         elif c == curses.KEY_BACKSPACE:
             comp.mp.speed = 1.0
+        elif c == 'q':
+            comp.print_msg(_("Save playlist? [Y/n]"))
+            if comp.scr.get_wch() not in _("Nn"): comp.dump_json()
+            break
         elif c in ('p', ' '):
             comp.cycle('pause')
         elif c == '.':
@@ -543,4 +549,3 @@ with Comp(entries, json_file, mode, mpv_args, ytdlf) as comp:
                 comp.mp.command(*comp.read_input(':').split())
             except:
                 comp.print_msg(_("Failed to execute command"), error=True)
-        c = comp.scr.get_wch()
