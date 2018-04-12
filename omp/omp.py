@@ -16,7 +16,9 @@
 #
 # Copyright (C) 2017  Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 
+import curses
 import json
+import re
 from bisect import bisect_left as bisect
 from collections import deque
 from gettext import bindtextdomain, gettext as _, textdomain
