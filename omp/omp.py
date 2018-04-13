@@ -72,7 +72,7 @@ class Omp(object):
         refresh(): update interface content
     """
     def __new__(cls, entries, json_file, mode, mpv_args, ytdlf):
-        self = super(Comp, cls).__new__(cls)
+        self = object.__new__(cls)
         self.play_backward, self.reading = False, False
         self.playing = -1
         self.json_file, self.mode = json_file, mode
@@ -119,7 +119,7 @@ class Omp(object):
             self.mp.property_multiply(name, factor)
         except:
             self.print_msg(
-                _("Failed to multiply '{}' with {}").format(name, value),
+                _("Failed to multiply '{}' with {}").format(name, factor),
                 error=True)
 
     def cycle(self, name, direction='up'):
