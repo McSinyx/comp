@@ -16,10 +16,9 @@
 #
 # Copyright (C) 2017  Nguyễn Gia Phong <vn.mcsinyx@gmail.com>
 
-__version__ = '0.4.5'
+__version__ = '0.4.6'
 
 import curses
-import json
 import re
 from argparse import ArgumentParser
 from collections import deque
@@ -27,14 +26,12 @@ from configparser import ConfigParser
 from curses.ascii import ctrl, alt
 from functools import reduce
 from gettext import bindtextdomain, gettext as _, textdomain
-from os import makedirs
-from os.path import abspath, dirname, expanduser, expandvars
+from os.path import expanduser
 from threading import Thread
 from traceback import print_exception
 
 from mpv import MPV
 from pkg_resources import resource_filename
-from youtube_dl import YoutubeDL
 
 from omp import extract_info, Omp
 
@@ -332,7 +329,8 @@ config.read(args.config)
 mode = config.get('comp', 'play-mode', fallback='play-current')
 mpv_args = dict(config['mpv']) if 'mpv' in config else {}
 if args.vo is not None: mpv_args['vo'] = args.vo
-ytdlf = args.format or config.get('youtube-dl', 'format', fallback='best')
+ytdlf = args.format or config.get('youtube-dl', 'format',
+                                  fallback='bestvideo+bestaudio')
 
 with Comp(entries, json_file, mode, mpv_args, ytdlf) as comp:
     while True:

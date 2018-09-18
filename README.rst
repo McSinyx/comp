@@ -262,7 +262,7 @@ Configuration files
 -------------------
 
 If not specified by the ``--config``, (user-specific) configuration file is
-``~/.config/mpv/settings.ini``. Default configurations
+``~/.config/comp/settings.ini``. Default configurations
 are listed below::
 
    [comp]
@@ -285,7 +285,7 @@ are listed below::
    [youtube-dl]
    # Video format/quality to be passed to youtube-dl. See FORMAT SELECTION in
    # youtube-dl(1) man page for more details and descriptions.
-   format = best
+   format = bestvideo+bestaudio
 
 
 Bugs

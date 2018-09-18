@@ -24,17 +24,14 @@ from collections import deque
 from gettext import bindtextdomain, gettext as _, textdomain
 from itertools import cycle
 from os import makedirs
-from os.path import abspath, dirname, expanduser, expandvars, isfile
+from os.path import abspath, dirname, expanduser, expandvars
 from random import choice
 from sys import exc_info
-from time import gmtime, sleep, strftime
-from urllib import request
 
-from youtube_dl import YoutubeDL
 from pkg_resources import resource_filename
-from mpv import MPV, MpvFormat
+from mpv import MPV
 
-from .ie import JSON_KEYS, extract_info
+from .ie import JSON_KEYS
 
 # Init gettext
 bindtextdomain('omp', resource_filename('omp', 'locale'))
